@@ -1,4 +1,26 @@
 import os
+import logging
+
+class Table:
+    def __init__(self, name, columns: dict) -> None:
+        self.name = name
+        self.columns = columns
+        self.row_size = sum(columns.values())
+
+class Database:
+    def __init__(self, name) -> None:
+        self.name = name
+        self.tables = {}
+
+    def add_table(self, table: Table):
+        self.tables[table.name] = table
+        logging.info(f"registered table {table.name} into database obejct {self.name}.")
+    
+    def remove_table(self, table: Table):
+        if table.name in self.tables:
+            del self.tables[table.name]
+        else:
+            logging.warning(f"table {table.name} was not registered in it's database object. Table file {table.name}.bin may still exist in the db directory.")
 
 class DatabaseEngine:
     # stores all databases.
