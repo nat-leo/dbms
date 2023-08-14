@@ -2,10 +2,12 @@ import os
 import logging
 
 class Table:
-    def __init__(self, name, columns: dict) -> None:
+    def __init__(self, name, schema: dict) -> None:
         self.name = name
-        self.columns = columns
-        self.row_size = sum(columns.values())
+        self.schema = schema
+        self.row_size = sum([value["bytes"] for key, value in self.schema.items()])
+        self.total_rows = 0
+        self.index_structure = {}
 
 class Database:
     def __init__(self, name) -> None:
@@ -57,13 +59,11 @@ class DatabaseEngine:
 
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
-    def scan(self, db, table, condition) -> list:
-        with open(f"{db.name}/{table.name}.bin", "rb") as file:
-            while True:
-                rows = file.read(table.bytes_per_row)
-                if not rows:
-                    break
-        return rows
+    def scan(self, db_name: str, table_name: str, condition) -> list:
+        t = self.databases[db_name].tables[table_name]
+        with open(f"{self.directory}/{db_name}/{table_name}.bin", "rb") as file:
+            data = file.read()
+        return data 
     
     # create a table as a .bin file of the form table_name.bin
     def create_table(self, db_name: str, table_name: str, schema: dict):
@@ -118,5 +118,45 @@ class DatabaseEngine:
         
 
     # append data into table.bin as binary data
-    def insert(self, db, table, data=[]):
-        pass
+    def insert(self, db_name: str, table_name: str, data: list[dict]):
+        try:
+            t = self.databases[db_name].tables[table_name]
+        except KeyError as e:
+            logging.error(f'{e}: Insert not performed.')
+
+        print(t.schema)
+        print(t.row_size)
+
+        for element in data:
+            append_string = b''
+            for key, value in element.items():
+                total_bytes = t.schema[key]["bytes"]
+                # error checking
+                if type(value) != t.schema[key]["type"]:
+                    logging.error(f'wrong type {type(value)} for schema element of type {t.schema[key]["type"]}')
+                
+                # go case-by-case for binary conversion
+                if type(value) == str:
+                    original_string = value.encode("utf-8")
+                elif type(value) == int:
+                    # using str().encode() saves on space compared to bin()
+                    original_string = str(value).encode("utf-8")
+                    #original_string = bin(value)
+                
+                # fill leftover space
+                if((total_bytes - len(original_string)) < 0): # error check
+                    logging.error("too much data for schema element")
+                    raise ValueError(f"{value} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
+                
+                fill_bytes = b'\x00' * (total_bytes - len(original_string))
+                insert_string = original_string + fill_bytes
+
+                # append the now binary value to the append string.
+                append_string += insert_string
+
+        # write every single data point in one go.
+        try:
+            with open(f"{self.directory}/{db_name}/{table_name}.bin", "ab") as file:
+                file.write(append_string)
+        except:
+            logging.error(f'{e}: unable to write data to file.')
