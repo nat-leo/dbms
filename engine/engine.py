@@ -60,10 +60,24 @@ class DatabaseEngine:
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
     def scan(self, db_name: str, table_name: str, condition) -> list:
+        # alias the table
         t = self.databases[db_name].tables[table_name]
+
+        # read entire file
         with open(f"{self.directory}/{db_name}/{table_name}.bin", "rb") as file:
             data = file.read()
-        return data 
+        
+        # format data into a nice list of dicts
+        data_list = []
+        for i in range(1, t.total_rows):
+            datum = data[i-1:t.row_size*i]
+            row = {}
+            for key, value in t.schema.items():
+                row[key] = datum[0:value['bytes']]
+                datum = datum[value['bytes']:]
+            data_list.append(row)
+
+        return data_list
     
     # create a table as a .bin file of the form table_name.bin
     def create_table(self, db_name: str, table_name: str, schema: dict):
@@ -124,11 +138,9 @@ class DatabaseEngine:
         except KeyError as e:
             logging.error(f'{e}: Insert not performed.')
 
-        print(t.schema)
-        print(t.row_size)
-
+        append_string = b''
         for element in data:
-            append_string = b''
+            t.total_rows += 1
             for key, value in element.items():
                 total_bytes = t.schema[key]["bytes"]
                 # error checking
