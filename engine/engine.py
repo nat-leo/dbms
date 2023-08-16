@@ -86,6 +86,31 @@ class DatabaseEngine:
 
         return data_list
     
+    def delete(self, db_name: str, table_name: str, condition = None):
+        t = self.databases[db_name].tables[table_name]
+        data = self.scan(db_name, table_name, condition)
+        
+        filtered_list = []
+        if condition:
+            for datum in data:
+                cond = f'{datum[condition["column"]]} {condition["operator"]} {condition["value"]}'
+                if eval(cond):
+                    t.total_rows -= 1
+                    # t.index_structure.remove(datum)
+                    continue
+                else:
+                    filtered_list.append(datum)
+        else:
+            t.total_rows = 0
+            t.index_structure = {}
+
+        self.insert(db_name, table_name, write_type="w")
+        
+
+
+    def update(self, db_name: str, table_name: str, condition = None):
+        pass
+    
     # create a table as a .bin file of the form table_name.bin
     def create_table(self, db_name: str, table_name: str, schema: dict):
         # create the table as a file
@@ -135,11 +160,11 @@ class DatabaseEngine:
         try:
             os.rmdir(self.directory+"/"+db_name)
         except OSError as e:
-            logging.error(f"{e}: dataabse folder was not removed.")
+            logging.error(f"{e}: database folder was not removed.")
         
 
     # append data into table.bin as binary data
-    def insert(self, db_name: str, table_name: str, data: list[dict]):
+    def insert(self, db_name: str, table_name: str, data: list[dict], write_type="a"):
         try:
             t = self.databases[db_name].tables[table_name]
         except KeyError as e:
@@ -175,7 +200,7 @@ class DatabaseEngine:
 
         # write every single data point in one go.
         try:
-            with open(f"{self.directory}/{db_name}/{table_name}.bin", "ab") as file:
+            with open(f"{self.directory}/{db_name}/{table_name}.bin", write_type+"b") as file:
                 file.write(append_string)
         except:
             logging.error(f'{e}: unable to write data to file.')
