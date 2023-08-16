@@ -59,7 +59,7 @@ class DatabaseEngine:
 
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
-    def scan(self, db_name: str, table_name: str, condition) -> list:
+    def scan(self, db_name: str, table_name: str, condition = None) -> list:
         # alias the table
         t = self.databases[db_name].tables[table_name]
 
@@ -73,10 +73,16 @@ class DatabaseEngine:
             datum = data[:t.row_size]
             row = {}
             for key, value in t.schema.items():
-                row[key] = datum[0:value['bytes']].replace(b"\x00", b'')
+                row[key] = datum[0:value['bytes']].replace(b"\x00", b'').decode()
+                print(type(row[key]))
                 datum = datum[value['bytes']:]
                 print('after: ', datum)
-            data_list.append(row)
+            if condition is None:
+                data_list.append(row)
+            else:
+                cond = f'{row[condition["column"]]} {condition["operator"]} {condition["value"]}'
+                if eval(cond):
+                    data_list.append(row)
 
         return data_list
     
