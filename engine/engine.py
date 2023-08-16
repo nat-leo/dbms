@@ -66,15 +66,16 @@ class DatabaseEngine:
         # read entire file
         with open(f"{self.directory}/{db_name}/{table_name}.bin", "rb") as file:
             data = file.read()
-        
+        print(data)
         # format data into a nice list of dicts
         data_list = []
-        for i in range(1, t.total_rows):
-            datum = data[i-1:t.row_size*i]
+        for i in range(t.total_rows):
+            datum = data[:t.row_size]
             row = {}
             for key, value in t.schema.items():
-                row[key] = datum[0:value['bytes']]
+                row[key] = datum[0:value['bytes']].replace(b"\x00", b'')
                 datum = datum[value['bytes']:]
+                print('after: ', datum)
             data_list.append(row)
 
         return data_list
