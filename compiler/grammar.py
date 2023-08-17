@@ -9,6 +9,7 @@ def p_select(p):
               | SELECT select_expr FROM ID ORDER BY ID sort_order
     """
     logging.debug("Parsed SELECT statement")
+    raise SyntaxError
     pass
 
 def p_select_expr(p):
@@ -44,4 +45,5 @@ def p_empty(p):
     pass
 
 def p_error(p):
-    print("We errored. RIP")
+    pass
+    #raise Exception(f"at {p}")
