@@ -15,6 +15,7 @@ class Parser:
                 break
             logging.info(f"Going through production rules for {self.match_token}")
             self.start_symbol()
+
     # LexToken() has the following attributes: type, value, lineno, lexpos
     def start_symbol(self):
         if self.match_token.type in ["SELECT"]:
@@ -29,7 +30,7 @@ class Parser:
         self.column_list()
         # After column_list, expect FROM
         if self.match_token.type in ["FROM"]:
-            logging.info(f"Matched {self.match_token} to [FROM].")
+            logging.info(f"select: Matched {self.match_token} to [FROM].")
         else:
             raise SyntaxError(f"select: Error on line {self.match_token.lineno}. Expected [FROM]: got {self.match_token} instead.")
         self.match_token = self.lexer.token()
@@ -42,12 +43,9 @@ class Parser:
     column column_list_n
     """  
     def column_list(self):
-        if self.match_token.type in ["ID"]:
-            logging.info(f"Matched {self.match_token} to [ID].")
-            self.match_token = self.lexer.token()
-            self.column_list_n()
-        else:
-            raise SyntaxError(f"column_list: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
+        self.column()
+        self.column_list_n()
+        return 
         
     """
     COMMA column column_list_n
@@ -56,7 +54,7 @@ class Parser:
     def column_list_n(self):
         # there's another column, expect COMMA
         if self.match_token.type in ["COMMA"]:
-            logging.info(f"Matched {self.match_token} to [COMMA].")
+            logging.info(f"column_list_n: Matched {self.match_token} to [COMMA].")
             self.match_token = self.lexer.token()
             # After COMMA, expect column column_list_n
             self.column()
@@ -64,7 +62,6 @@ class Parser:
             return
         # empty rule
         elif self.match_token.type in ["FROM"]:
-            logging.info(f"Matched {self.match_token} to [ID].")
             return
         else: 
             raise SyntaxError(f"column_list_n: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
@@ -77,7 +74,7 @@ class Parser:
         if self.match_token is None:
             return
         elif self.match_token.type in ["WHERE"]:
-            logging.info(f"Matched {self.match_token} to [WHERE].")
+            logging.info(f"optiolnal_args: Matched {self.match_token} to [WHERE].")
             self.match_token = self.lexer.token()
             self.condition()
             return
@@ -86,10 +83,14 @@ class Parser:
     def condition(self):
         return
 
-    # ID
+    # ID | ALL
     def column(self):
         if self.match_token.type in ["ID"]:
-            logging.info(f"Matched {self.match_token} to [ID].")
+            logging.info(f"column: Matched {self.match_token} to [ID].")
+            self.match_token = self.lexer.token()
+            return
+        elif self.match_token.type in ["ALL"]:
+            logging.info(f"column: Matched {self.match_token} to [ALL].")
             self.match_token = self.lexer.token()
             return
         else: 
@@ -98,7 +99,7 @@ class Parser:
     # ID
     def table(self):
         if self.match_token.type in ["ID"]:
-            logging.info(f"Matched {self.match_token} to [ID].")
+            logging.info(f"table: Matched {self.match_token} to [ID].")
             self.match_token = self.lexer.token()
             return
         else: 
@@ -109,3 +110,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     p = Parser()
     p.parse("SELECT column FROM table")
+    p.parse("SELECT column1, column2, column3 FROM table")
+    p.parse("SELECT * FROM table")
