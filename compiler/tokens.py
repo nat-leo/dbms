@@ -55,7 +55,7 @@ def t_ID(t):
     return t
 
 # ingore these characters and patterns:
-t_ignore = r' \n\t'
+t_ignore = r' \n'
 
 # Error handling rule
 def t_error(t):
