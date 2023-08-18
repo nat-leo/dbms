@@ -44,13 +44,20 @@ reserved = {
     'DESC': 'DESC',
 }
 
-tokens = ["ID", "ALL", "COMMA"] + list(reserved.values())
+tokens = ["ID", "STRING", "OPERATOR", "ALL", "COMMA", "NUM",] + list(reserved.values())
 
+t_NUM = r'\d+|\d*.\d+'
 t_ALL = r'\*'
 t_COMMA = r','
+t_OPERATOR = r'<|>|<=|>=|='
 
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
+    t.type = reserved.get(t.value, "ID")    # Check for reserved words
+    return t
+
+def t_STRING(t):
+    r'[a-zA-Z]+'
     t.type = reserved.get(t.value, "ID")    # Check for reserved words
     return t
 
