@@ -266,6 +266,7 @@ class Parser:
     def optional_args(self):
         # empty rule should terminate
         if self.match_token is None:
+            self.query_plan["condition"] = None # condense condition
             return
         elif self.match_token.type in ["WHERE"]:
             logging.info(f"optiolnal_args: Matched {self.match_token} to [WHERE].")
