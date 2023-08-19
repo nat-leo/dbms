@@ -44,12 +44,15 @@ reserved = {
     'DESC': 'DESC',
 }
 
-tokens = ["ID", "STRING", "OPERATOR", "ALL", "COMMA", "NUM",] + list(reserved.values())
+tokens = ["ID", "STRING", "OPERATOR", "ALL", "COMMA", "LPAR", "RPAR", "NUM",] + list(reserved.values())
 
 t_NUM = r'\d+|\d*.\d+'
 t_ALL = r'\*'
 t_COMMA = r','
 t_OPERATOR = r'<|>|<=|>=|='
+t_LPAR = r'\('
+t_RPAR = r'\)'
+
 
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'

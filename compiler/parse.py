@@ -92,6 +92,9 @@ class Parser:
         if self.match_token.type in ["SELECT"]:
             self.lqp.set_operation("SELECT") # ast
             self.select()
+        elif self.match_token.type in ["INSERT"]:
+            self.lqp.set_operation("INSERT") # ast
+            self.insert()
         else:
             raise SyntaxError()
 
@@ -110,6 +113,30 @@ class Parser:
         self.table()
         # After table, expect optional args
         self.optional_args()
+
+    # INSERT INTO table schema VALUES values_list
+    def insert(self):
+        self.match_token = self.lexer.token()
+        if self.match_token.type not in ["INTO"]:
+            raise SyntaxError(f"select: Error on line {self.match_token.lineno}. Expected [INTO]: got {self.match_token} instead.")
+        logging.info(f"select: Matched {self.match_token} to [INTO].")
+        self.match_token = self.lexer.token()
+        self.table()
+        self.schema()
+        if self.match_token.type not in ["VALUES"]:
+            raise SyntaxError(f"select: Error on line {self.match_token.lineno}. Expected [VALUES]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+        self.row_list()
+
+    # ( column_list )
+    def schema(self):
+        if self.match_token.type not in ["LPAR"]:
+            raise SyntaxError(f"schema: Error on line {self.match_token.lineno}. Expected [LPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+        self.column_list()
+        if self.match_token.type not in ["RPAR"]:
+            raise SyntaxError(f"schema: Error on line {self.match_token.lineno}. Expected [RPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
 
     """ 
     column column_list_n
@@ -133,11 +160,67 @@ class Parser:
             self.column_list_n()
             return
         # empty rule
-        elif self.match_token.type in ["FROM"]:
+        elif self.match_token.type in ["FROM", "RPAR"]:
             return
         else: 
             raise SyntaxError(f"column_list_n: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
     
+    """ 
+    row row_list_n
+    """  
+    def row_list(self):
+        self.row()
+        self.row_list_n()
+        return 
+        
+    """
+    COMMA row row_list_n
+    | empty [None]
+    """
+    def row_list_n(self):
+        # empty rule
+        if self.match_token is None:
+            return
+        # there's another column, expect COMMA
+        elif self.match_token.type in ["COMMA"]:
+            logging.info(f"row_list_n: Matched {self.match_token} to [COMMA].")
+            self.match_token = self.lexer.token()
+            # After COMMA, expect row row_list_n
+            self.row()
+            self.row_list_n()
+            return
+        else: 
+            raise SyntaxError(f"row_list_n: Error on line {self.match_token.lineno}. Expected [COMMA, None]: got {self.match_token} instead.")
+    
+    # ( attribute_list )
+    def row(self):
+        if self.match_token.type not in ["LPAR"]:
+            raise SyntaxError(f"row: Error on line {self.match_token.lineno}. Expected [LPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+        self.attribute_list()
+        if self.match_token.type not in ["RPAR"]:
+            raise SyntaxError(f"row: Error on line {self.match_token.lineno}. Expected [RPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+    
+    # value attribute_list_n
+    def attribute_list(self):
+        if self.match_token.type not in ["VALUE", "ID"]:
+            raise SyntaxError(f"attribute_list: Error on line {self.match_token.lineno}. Expected [VALUE]: got {self.match_token} instead.")
+        self.value()
+        self.attribute_list_n()
+
+    # COMMA value attribute_list_n | empty [RPAR]
+    def attribute_list_n(self):
+        if self.match_token.type in ["RPAR"]: # empty case RPAR
+            return
+        elif self.match_token.type in ["COMMA"]:
+            self.match_token = self.lexer.token()
+            self.value()
+            self.attribute_list_n()
+        else:
+            raise SyntaxError(f"attribute_list: Error on line {self.match_token.lineno}. Expected [COMMA, RPAR]: got {self.match_token} instead.")
+    
+
     """ WHERE condition
         | empty [None]
     """
@@ -177,7 +260,7 @@ class Parser:
 
     # STRING | NUM
     def value(self):
-        if self.match_token.type not in ["NUM", "STRING"]:
+        if self.match_token.type not in ["NUM", "STRING", "ID"]:
             raise SyntaxError(f"value: Error on line {self.match_token.lineno}. Expected [NUM, STRING]: got {self.match_token} instead.")
         self.lqp.condition["value"] = self.match_token.value
         self.match_token = self.lexer.token()
@@ -213,4 +296,5 @@ if __name__ == "__main__":
     p.parse("SELECT column FROM table")
     p.parse("SELECT column1, column2, column3 FROM table WHERE column1 < 5")
     p.parse("SELECT * FROM table")
+    p.parse("INSERT INTO table (column1, column2, column3) VALUES (value1, value2, value3)")
     
