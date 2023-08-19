@@ -2,101 +2,73 @@ import logging
 import ply.lex as lex
 import tokens
 
-''' Given a set of instructions as a list, execute each
-    operation from the first element to the last element.
-
-    Elements all have one "operation" and one "child" operation:
-    {
-        "operation": ,
-        "columns": [],
-        "source": {
-            "operation": "SCAN",
-            "table": ,
-        }
-        "condition": {
-            "column": ,
-            "operator": ,
-            "value": ,
-        }
-    }
-'''
-class LogicalQueryPlan:
-    def __init__(self) -> None:
-        self.plan = {}
-        self.operation = None
-        self.columns = []
-        self.source = None
-        self.c_col = None
-        self.c_operator = None
-        self.c_val = None
-        self.condition = {
-            "column": self.c_col,
-            "operator": self.c_operator,
-            "value": self.c_val
-        }
-
-    def set_operation(self, op: str):
-        self.operation = op
-
-    def set_columns(self, columns: list):
-        self.columns = columns
-    
-    def add_column(self, column: str):
-        self.columns.append(column)
-    
-    def set_source(self, table: str):
-        self.source = table
-    
-    def set_condition(self, condition: dict):
-        self.condition = condition
-
-    def set_c_col(self, column):
-        self.c_col = column
-        self.condition["column"] = column
-        
-    def set_c_operator(self, op):
-        self.c_operator = op
-        self.condition["operator"] = op
-    
-    def set_c_val(self, val):
-        self.c_val = val
-        self.condition["value"] = val
-
-    def to_json(self):
-        return {"operation": self.operation,
-                "columns": self.columns,
-                "source": self.source,
-                "condition": self.condition}
-    
-
-
 class Parser:
     def __init__(self) -> None:
         self.lexer = lex.lex(module=tokens) # steal PLY lex() and methods
         self.match_token = lex.LexToken()
-        self.lqp = LogicalQueryPlan()
+        self.query_plan = {}
 
     def parse(self, string: str):
         self.lexer.input(string) # FROM PLY
-        self.lqp = LogicalQueryPlan()
+        self.query_plan = {} # reset lqp
         while True:
             self.match_token = self.lexer.token() # Also from PLY
             if not self.match_token:
                 break
             logging.info(f"Going through production rules for {self.match_token}")
             self.start_symbol()
-            logging.info(f"LQP: {p.lqp.to_json()}")
+            logging.info(f"LQP: {self.query_plan}")
 
     # LexToken() has the following attributes: type, value, lineno, lexpos
     def start_symbol(self):
         if self.match_token.type in ["SELECT"]:
-            self.lqp.set_operation("SELECT") # ast
+            self.query_plan = {
+                "operation": "SELECT",
+                "columns": [],
+                "table": None,
+                "condition": {
+                    "column": None,
+                    "operator": None,
+                    "value": None,
+                },
+            } # ast
             self.select()
+        elif self.match_token.type in ["UPDATE"]:
+            self.query_plan = {
+                "operation": "UPDATE",
+                "table": None,
+                "set": {
+                    "column": None,
+                    "value": None,
+                },
+                "condition": {
+                    "column": None,
+                    "operator": None,
+                    "value": None,
+                },
+            } # ast
+            #self.update()
         elif self.match_token.type in ["INSERT"]:
-            self.lqp.set_operation("INSERT") # ast
+            self.query_plan = {
+                "operation": "INSERT",
+                "columns": [],
+                "table": None,
+                "values": [],
+            } # ast
             self.insert()
-        else:
-            raise SyntaxError()
+
+        elif self.match_token.type in ["DELETE"]:
+            self.query_plan = {
+                "operation": "DELETE",
+                "columns": [],
+                "table": None,
+                "condition": {
+                    "column": None,
+                    "operator": None,
+                    "value": None,
+                },
+            } # ast
+            #self.delete()
 
     """SELECT column_list FROM table"""
     def select(self):
@@ -197,7 +169,7 @@ class Parser:
         if self.match_token.type not in ["LPAR"]:
             raise SyntaxError(f"row: Error on line {self.match_token.lineno}. Expected [LPAR]: got {self.match_token} instead.")
         self.match_token = self.lexer.token()
-        self.attribute_list()
+        self.query_plan["values"].append(self.attribute_list()) # row is only used for UPDATE, no need to check if SELECT, INSERT, UDPATE, or DELETE
         if self.match_token.type not in ["RPAR"]:
             raise SyntaxError(f"row: Error on line {self.match_token.lineno}. Expected [RPAR]: got {self.match_token} instead.")
         self.match_token = self.lexer.token()
@@ -206,17 +178,19 @@ class Parser:
     def attribute_list(self):
         if self.match_token.type not in ["VALUE", "ID"]:
             raise SyntaxError(f"attribute_list: Error on line {self.match_token.lineno}. Expected [VALUE]: got {self.match_token} instead.")
-        self.value()
-        self.attribute_list_n()
+        return [self.value()] + self.attribute_list_n()
 
     # COMMA value attribute_list_n | empty [RPAR]
     def attribute_list_n(self):
         if self.match_token.type in ["RPAR"]: # empty case RPAR
-            return
+            return None
         elif self.match_token.type in ["COMMA"]:
             self.match_token = self.lexer.token()
-            self.value()
-            self.attribute_list_n()
+            val = self.value()
+            val_list = self.attribute_list_n()
+            if val_list is not None:
+                return [val] + val_list
+            return [val]
         else:
             raise SyntaxError(f"attribute_list: Error on line {self.match_token.lineno}. Expected [COMMA, RPAR]: got {self.match_token} instead.")
     
@@ -241,51 +215,69 @@ class Parser:
         if self.match_token.type not in ["ID"]:
             raise SyntaxError(f"condition: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
         # column
-        if self.match_token.value in self.lqp.columns:
-            self.lqp.condition["column"] = self.match_token.value
-            self.match_token = self.lexer.token()
-        else:
-            raise NameError(f"conditon: Error on line {self.match_token.lineno}. {self.match_token} is not a column.")
+        self.conditional_column()
         # operator
         self.operator()
         # value
-        self.value()
+        self.query_plan["condition"]["value"] = self.value()
     
     # OPERATOR
     def operator(self):
         if self.match_token.type not in ["OPERATOR"]:
             raise SyntaxError(f"operator: Error on line {self.match_token.lineno}. Expected [OPERATOR]: got {self.match_token} instead.")
-        self.lqp.condition["operator"] = self.match_token.value
+        self.query_plan["condition"]["operator"] = self.match_token.value
         self.match_token = self.lexer.token()
 
     # STRING | NUM
     def value(self):
+        val = self.match_token.value
         if self.match_token.type not in ["NUM", "STRING", "ID"]:
             raise SyntaxError(f"value: Error on line {self.match_token.lineno}. Expected [NUM, STRING]: got {self.match_token} instead.")
-        self.lqp.condition["value"] = self.match_token.value
         self.match_token = self.lexer.token()
-
+        return val
+    
     # ID | ALL
+    # returns the column Lexeme matched.
     def column(self):
-        self.lqp.add_column(self.match_token.value) # ast
+        # build query plan
+        if self.query_plan["operation"] in ["SELECT", "DELETE"]:
+            self.query_plan["columns"].append(self.match_token.value)
+        # parser logic
         if self.match_token.type in ["ID"]:
             logging.info(f"column: Matched {self.match_token} to [ID].")
             self.match_token = self.lexer.token()
-            return
         elif self.match_token.type in ["ALL"]:
             logging.info(f"column: Matched {self.match_token} to [ALL].")
             self.match_token = self.lexer.token()
-            return
         else: 
             raise SyntaxError(f"column: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
+    
+    # ID | ALL
+    # returns the column Lexeme matched.
+    def conditional_column(self):
+        # build query plan
+        # error check first
+        if self.match_token.value not in self.query_plan["columns"]:
+            raise NameError(f"conditonal_column: Error on line {self.match_token.lineno}. {self.match_token} is not a column.")
+        if self.query_plan["operation"] in ["SELECT", "UPDATE", "DELETE"]:
+            self.query_plan["condition"]["column"] = self.match_token.value
+        # parser logic
+        if self.match_token.type in ["ID"]:
+            logging.info(f"conditional_column: Matched {self.match_token} to [ID].")
+            self.match_token = self.lexer.token()
+        elif self.match_token.type in ["ALL"]:
+            logging.info(f"conditional_column: Matched {self.match_token} to [ALL].")
+            self.match_token = self.lexer.token()
+        else: 
+            raise SyntaxError(f"conditional_column: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
 
     # ID
+    # returns table matched
     def table(self):
-        self.lqp.set_source(self.match_token.value) # ast
+        self.query_plan["table"] = self.match_token.value # table is in every type of ast.
         if self.match_token.type in ["ID"]:
             logging.info(f"table: Matched {self.match_token} to [ID].")
             self.match_token = self.lexer.token()
-            return
         else: 
             raise SyntaxError(f"table: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
 
@@ -296,5 +288,5 @@ if __name__ == "__main__":
     p.parse("SELECT column FROM table")
     p.parse("SELECT column1, column2, column3 FROM table WHERE column1 < 5")
     p.parse("SELECT * FROM table")
-    p.parse("INSERT INTO table (column1, column2, column3) VALUES (value1, value2, value3)")
+    p.parse("INSERT INTO table (column1, column2, column3) VALUES (value1, value2, value3), (value1, value2, value3)")
     
