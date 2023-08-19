@@ -60,7 +60,7 @@ class Parser:
         elif self.match_token.type in ["DELETE"]:
             self.query_plan = {
                 "operation": "DELETE",
-                "columns": [],
+                "columns": ["*"],
                 "table": None,
                 "condition": {
                     "column": None,
@@ -68,7 +68,7 @@ class Parser:
                     "value": None,
                 },
             } # ast
-            #self.delete()
+            self.delete()
 
     """SELECT column_list FROM table"""
     def select(self):
@@ -90,15 +90,26 @@ class Parser:
     def insert(self):
         self.match_token = self.lexer.token()
         if self.match_token.type not in ["INTO"]:
-            raise SyntaxError(f"select: Error on line {self.match_token.lineno}. Expected [INTO]: got {self.match_token} instead.")
-        logging.info(f"select: Matched {self.match_token} to [INTO].")
+            raise SyntaxError(f"insert: Error on line {self.match_token.lineno}. Expected [INTO]: got {self.match_token} instead.")
+        logging.info(f"insert: Matched {self.match_token} to [INTO].")
         self.match_token = self.lexer.token()
         self.table()
         self.schema()
         if self.match_token.type not in ["VALUES"]:
-            raise SyntaxError(f"select: Error on line {self.match_token.lineno}. Expected [VALUES]: got {self.match_token} instead.")
+            raise SyntaxError(f"insert: Error on line {self.match_token.lineno}. Expected [VALUES]: got {self.match_token} instead.")
         self.match_token = self.lexer.token()
         self.row_list()
+
+    def delete(self):
+        self.match_token = self.lexer.token()
+        if self.match_token.type not in ["FROM"]:
+            raise SyntaxError(f"delete: Error on line {self.match_token.lineno}. Expected [INTO]: got {self.match_token} instead.")
+        logging.info(f"delete: Matched {self.match_token} to [INTO].")
+        self.match_token = self.lexer.token()
+        # After FROM, expect table
+        self.table()
+        # After table, expect optional args
+        self.optional_args()
 
     # ( column_list )
     def schema(self):
@@ -257,7 +268,7 @@ class Parser:
     def conditional_column(self):
         # build query plan
         # error check first
-        if self.match_token.value not in self.query_plan["columns"]:
+        if self.query_plan["columns"]!=["*"] and self.match_token.value not in self.query_plan["columns"]:
             raise NameError(f"conditonal_column: Error on line {self.match_token.lineno}. {self.match_token} is not a column.")
         if self.query_plan["operation"] in ["SELECT", "UPDATE", "DELETE"]:
             self.query_plan["condition"]["column"] = self.match_token.value
@@ -289,4 +300,6 @@ if __name__ == "__main__":
     p.parse("SELECT column1, column2, column3 FROM table WHERE column1 < 5")
     p.parse("SELECT * FROM table")
     p.parse("INSERT INTO table (column1, column2, column3) VALUES (value1, value2, value3), (value1, value2, value3)")
-    
+    p.parse("DELETE FROM table")
+    p.parse("DELETE FROM table WHERE column3 = tibby")
+
