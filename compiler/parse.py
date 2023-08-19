@@ -36,18 +36,19 @@ class Parser:
         elif self.match_token.type in ["UPDATE"]:
             self.query_plan = {
                 "operation": "UPDATE",
+                "columns": ["*"],
                 "table": None,
-                "set": {
-                    "column": None,
-                    "value": None,
-                },
+                "set": [
+                    #{"column": None,
+                    #"value": None}
+                ],
                 "condition": {
                     "column": None,
                     "operator": None,
                     "value": None,
                 },
             } # ast
-            #self.update()
+            self.update()
         elif self.match_token.type in ["INSERT"]:
             self.query_plan = {
                 "operation": "INSERT",
@@ -85,6 +86,19 @@ class Parser:
         self.table()
         # After table, expect optional args
         self.optional_args()
+    
+    def update(self):
+        self.match_token = self.lexer.token()
+        # After UPDATE, expect table
+        self.table()
+        # After table, expect SET
+        if self.match_token.type in ["SET"]:
+            logging.info(f"update: Matched {self.match_token} to [FROM].")
+        else:
+            raise SyntaxError(f"update: Error on line {self.match_token.lineno}. Expected [FROM]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+        self.set_list()
+        self.optional_args()
 
     # INSERT INTO table schema VALUES values_list
     def insert(self):
@@ -110,6 +124,46 @@ class Parser:
         self.table()
         # After table, expect optional args
         self.optional_args()
+
+    """ 
+    set set_list_n
+    """  
+    def set_list(self):
+        self.set()
+        self.set_list_n()
+
+    """
+    COMMA set set_list_n
+    | empty [WHERE, NONE]
+    """
+    def set_list_n(self):
+        # empty rule
+        if self.match_token is None or self.match_token.type in ["WHERE"]:
+            return
+        # there's another column, expect COMMA
+        elif self.match_token.type in ["COMMA"]:
+            logging.info(f"set_list_n: Matched {self.match_token} to [COMMA].")
+            self.match_token = self.lexer.token()
+            # After COMMA, expect set set_list_n
+            self.set()
+            self.set_list_n()
+            return
+        else: 
+            raise SyntaxError(f"set_list_n: Error on line {self.match_token.lineno}. Expected [COMMA, WHERE, NONE]: got {self.match_token} instead.")
+
+    def set(self):
+        # parser logic
+        if self.match_token.type not in ["ID"]:
+            raise SyntaxError(f"set: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
+        logging.info(f"set: Matched {self.match_token} to [ID].")
+        col = self.match_token.value
+        # After ID, expect =
+        self.match_token = self.lexer.token()
+        # After =, expect val
+        self.match_token = self.lexer.token()
+        val = self.value()
+        # build query plan
+        self.query_plan["set"].append({"column": col, "value": val})
 
     # ( column_list )
     def schema(self):
@@ -302,4 +356,6 @@ if __name__ == "__main__":
     p.parse("INSERT INTO table (column1, column2, column3) VALUES (value1, value2, value3), (value1, value2, value3)")
     p.parse("DELETE FROM table")
     p.parse("DELETE FROM table WHERE column3 = tibby")
+    p.parse("UPDATE table SET column1 = 5 WHERE column3 = tibby")
+    p.parse("UPDATE table SET column1 = tibs")
 
