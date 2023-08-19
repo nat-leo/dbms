@@ -42,6 +42,7 @@ reserved = {
     'FROM': 'FROM',
     'ASC': 'ASC',
     'DESC': 'DESC',
+    'SET': 'SET',
 }
 
 tokens = ["ID", "STRING", "OPERATOR", "ALL", "COMMA", "LPAR", "RPAR", "NUM",] + list(reserved.values())
