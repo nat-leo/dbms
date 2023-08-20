@@ -60,16 +60,17 @@ class DatabaseEngine:
         with open(f"{self.directory}/{table_name}.bin", "rb") as file:
             data = file.read()
         logging.info(f"read entire table {table_name}. Data read: {data}")
+
         # format data into a nice list of dicts
         data_list = []
         for i in range(t.total_rows):
             datum = data[:t.row_size]
             row = {}
-            for key, value in t.schema.items():
-                row[key] = datum[0:value['bytes']].replace(b"\x00", b'').decode()
-                print(type(row[key]))
-                datum = datum[value['bytes']:]
-                print('after: ', datum)
+            for key, attribute in t.schema.items():
+                row[key] = datum[0:attribute['bytes']].replace(b"\x00", b'').decode()
+                datum = datum[attribute['bytes']:]
+                logging.info(f"read {row[key]}")
+            data = data[t.row_size:]
             if condition is None:
                 data_list.append(row)
             else:
@@ -165,24 +166,25 @@ class DatabaseEngine:
             logging.error(f'{e}: Insert not performed.')
 
         # write the data to one string, and append the entire string
+        t.total_rows += len(data)
         append_string = b''
         for row in data:
-                for i in range(len(row)):
-                    attributes = list(t.schema.values())
-                    # do a type check, get the maximum bytes a column can hold, 
-                    # and convert the data to a binary string.
-                    if type(row[i]) != attributes[i]["type"]:
-                        logging.error(f'wrong type {type(row[i])} for schema element of type {attributes[i]["type"]}')
-                    total_bytes = attributes[i]["bytes"]
-                    original_string = str(row[i]).encode("utf-8")
+            for i in range(len(row)):
+                attributes = list(t.schema.values())
+                # do a type check, get the maximum bytes a column can hold, 
+                # and convert the data to a binary string.
+                if type(row[i]) != attributes[i]["type"]:
+                    logging.error(f'wrong type {type(row[i])} for schema element of type {attributes[i]["type"]}')
+                total_bytes = attributes[i]["bytes"]
+                original_string = str(row[i]).encode("utf-8")
 
-                    # fill leftover space with a \x00.
-                    if((total_bytes - len(original_string)) < 0): # error check
-                        logging.error("too much data for schema element")
-                        raise ValueError(f"{row[i]} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
-                    fill_bytes = b'\x00' * (total_bytes - len(original_string))
-                    insert_string = original_string + fill_bytes
-                    append_string += insert_string
+                # fill leftover space with a \x00.
+                if((total_bytes - len(original_string)) < 0): # error check
+                    logging.error("too much data for schema element")
+                    raise ValueError(f"{row[i]} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
+                fill_bytes = b'\x00' * (total_bytes - len(original_string))
+                insert_string = original_string + fill_bytes
+                append_string += insert_string
 
         # once all the data is on one binary string,
         # append the data to the file
