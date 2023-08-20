@@ -26,47 +26,40 @@ class Database:
 
 class DatabaseEngine:
     # stores all databases.
-    def __init__(self) -> None:
-        self.directory = os.path.join(os.path.dirname(__file__), "db") # create 'db' folder in the same dir as this file!
-        self.databases = {} # dict for constant access time 
-        os.mkdir(self.directory) # folder 'db' persists when program ends.
+    def __init__(self, user) -> None:
+        self.user = user
+        self.directory = os.path.join(os.path.dirname(__file__), user) # create user folder in the same dir as this file!
+        self.databases = {user: Database(name=user)} # dict for constant access time 
+        self.create_db(self.user)
 
-    ''' Given a set of instructions as a list, execute each
-    operation from the first element to the last element.
-
-    Elements all have one "operation" and one "child" operation:
-    {
-        "operation": ,
-        "columns": [],
-        "source": {
-            "operation": "SCAN",
-            "table": ,
-        }
-        "condition": {
-            "column": ,
-            "operator": ,
-            "value": ,
-        }
-    }
-    '''
-    def execute(self, lqp: dict) -> list:
-        # use lqp["source"]["table"] to open a connection to the file table.bin.
-        # for each row in the table assert lqp["condition"]. If true, add to our list.
-        # for each row in list, use lqp["columns"] to select all columns requested, and
-        #add to a different list.
-        #return the different list.
-        return []
+    def execute(self, query_plan: dict) -> list:
+        if query_plan["operation"] == "SELECT":
+            table = query_plan["table"]
+            condition = query_plan["condition"]
+            return self.scan(self.user, table, condition)
+        elif query_plan["operation"] == "UPDATE":
+            pass
+        elif query_plan["operation"] == "INSERT":
+            table = query_plan["table"]
+            values = query_plan["values"]
+            return self.insert(self.user, table, values)
+        elif query_plan["operation"] == "DELETE":
+            pass
 
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
     def scan(self, db_name: str, table_name: str, condition = None) -> list:
         # alias the table
+        if not self.databases[db_name].tables:
+            raise KeyError(f"{self.databases[db_name]} is empty.")
+        if not self.databases[db_name].tables[table_name]:
+            raise KeyError(f"{self.databases[db_name]} is has no key called {table_name}.")
         t = self.databases[db_name].tables[table_name]
 
         # read entire file
-        with open(f"{self.directory}/{db_name}/{table_name}.bin", "rb") as file:
+        with open(f"{self.directory}/{table_name}.bin", "rb") as file:
             data = file.read()
-        print(data)
+        logging.info(f"read entire table {table_name}. Data read: {data}")
         # format data into a nice list of dicts
         data_list = []
         for i in range(t.total_rows):
@@ -105,8 +98,6 @@ class DatabaseEngine:
             t.index_structure = {}
 
         self.insert(db_name, table_name, write_type="w")
-        
-
 
     def update(self, db_name: str, table_name: str, condition = None):
         pass
@@ -114,7 +105,7 @@ class DatabaseEngine:
     # create a table as a .bin file of the form table_name.bin
     def create_table(self, db_name: str, table_name: str, schema: dict):
         # create the table as a file
-        path = f"{self.directory}/{db_name}/{table_name}.bin"
+        path = f"{self.directory}/{table_name}.bin"
         open(path, "wb")
         
         # register the table in the right db
@@ -125,14 +116,17 @@ class DatabaseEngine:
 
     # create a database as a directory, where the directory/folder name is db_name
     def create_db(self, db_name: str):
-        # write the directory
-        path = os.path.join(self.directory, db_name)
-        os.mkdir(path)
+        if os.path.exists(self.directory):
+            logging.info("Directory already exists for user. Welcome back.")
+        else:
+            try:
+                os.mkdir(self.directory)
+                logging.info("Directory created for new user. Welcome!")
+            except OSError as e:
+                logging.error(f"Error creating directory: {e}")
         # register a db object so we can keep track of dbs and tables easier.
         db = Database(db_name)
         self.databases[db_name] = db
-    
-        logging.info(f"DatabaseEngine: created Database object {path}")
     
     # completely delete the table from the database
     def drop_table(self, db_name: str, table_name: str):
@@ -164,43 +158,70 @@ class DatabaseEngine:
         
 
     # append data into table.bin as binary data
-    def insert(self, db_name: str, table_name: str, data: list[dict], write_type="a"):
+    def insert(self, db_name: str, table_name: str, data: list, write_type="a"):
         try:
             t = self.databases[db_name].tables[table_name]
         except KeyError as e:
             logging.error(f'{e}: Insert not performed.')
 
         append_string = b''
-        for element in data:
+        for row in data:
             t.total_rows += 1
-            for key, value in element.items():
-                total_bytes = t.schema[key]["bytes"]
+            index = 0
+            for key, value in t.schema.items():
+                total_bytes = value["bytes"]
                 # error checking
-                if type(value) != t.schema[key]["type"]:
-                    logging.error(f'wrong type {type(value)} for schema element of type {t.schema[key]["type"]}')
+                if type(row[index]) != value["type"]:
+                    logging.error(f'wrong type {type(row[index])} for schema element of type {t.schema[key]["type"]}')
                 
                 # go case-by-case for binary conversion
-                if type(value) == str:
-                    original_string = value.encode("utf-8")
-                elif type(value) == int:
+                if type(row[index]) == str:
+                    original_string = row[index].encode("utf-8")
+                elif type(row[index]) == int:
                     # using str().encode() saves on space compared to bin()
-                    original_string = str(value).encode("utf-8")
+                    original_string = str(row[index]).encode("utf-8")
                     #original_string = bin(value)
                 
                 # fill leftover space
                 if((total_bytes - len(original_string)) < 0): # error check
                     logging.error("too much data for schema element")
-                    raise ValueError(f"{value} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
+                    raise ValueError(f"{row[index]} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
                 
                 fill_bytes = b'\x00' * (total_bytes - len(original_string))
                 insert_string = original_string + fill_bytes
 
                 # append the now binary value to the append string.
                 append_string += insert_string
-
+                index += 1
         # write every single data point in one go.
         try:
-            with open(f"{self.directory}/{db_name}/{table_name}.bin", write_type+"b") as file:
+            with open(f"{self.directory}/{table_name}.bin", write_type+"b") as file:
                 file.write(append_string)
         except:
             logging.error(f'{e}: unable to write data to file.')
+
+if __name__ == "__main__":
+    schema = {
+        "address": {"type": str, "bytes": 64}, 
+        "price": {"type": int, "bytes": 5}, 
+        "zip_code": {"type": str, "bytes": 5},
+        "beds": {"type": int, "bytes": 2}, 
+        "baths": {"type": int, "bytes": 2},
+    }
+
+    data = [
+        ("123 Main St", 1500, "12345", 2, 1),
+        ("456 Elm St", 2000, "23456", 3, 2),
+        ("789 Oak Ave", 1800, "34567", 1, 1),
+        ("101 Pine Rd", 2200, "45678", 3, 2),
+        ("222 Maple Dr", 2800, "56789", 4, 3),
+    ]
+    logging.basicConfig(level=logging.DEBUG)
+    db = DatabaseEngine("rentals")
+    db.create_table("rentals", "apts", schema)
+    # INSERT INTO apts (address, price, zip_code, bed, bath) VALUES ('123 Main St', 1500, '12345', 2, 1), ('456 Elm St', 2000, '23456', 3, 2), etc
+    #d = db.execute({'operation': 'INSERT', 'columns': [], 'table': 'apts', 'values': data})
+    #logging.info(d)
+    # SELECT * FROM apts WHERE price < 1500
+    data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': {'column': 'price', 'operator': '<=', 'value': '2000'}})
+    logging.info(f"data found: {data_list}")
