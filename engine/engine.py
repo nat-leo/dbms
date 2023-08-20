@@ -158,42 +158,34 @@ class DatabaseEngine:
         
 
     # append data into table.bin as binary data
-    def insert(self, db_name: str, table_name: str, data: list, write_type="a"):
+    def insert(self, db_name: str, table_name: str, data: list[list], write_type="a"):
         try:
             t = self.databases[db_name].tables[table_name]
         except KeyError as e:
             logging.error(f'{e}: Insert not performed.')
 
+        # write the data to one string, and append the entire string
         append_string = b''
         for row in data:
-            t.total_rows += 1
-            index = 0
-            for key, value in t.schema.items():
-                total_bytes = value["bytes"]
-                # error checking
-                if type(row[index]) != value["type"]:
-                    logging.error(f'wrong type {type(row[index])} for schema element of type {t.schema[key]["type"]}')
-                
-                # go case-by-case for binary conversion
-                if type(row[index]) == str:
-                    original_string = row[index].encode("utf-8")
-                elif type(row[index]) == int:
-                    # using str().encode() saves on space compared to bin()
-                    original_string = str(row[index]).encode("utf-8")
-                    #original_string = bin(value)
-                
-                # fill leftover space
-                if((total_bytes - len(original_string)) < 0): # error check
-                    logging.error("too much data for schema element")
-                    raise ValueError(f"{row[index]} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
-                
-                fill_bytes = b'\x00' * (total_bytes - len(original_string))
-                insert_string = original_string + fill_bytes
+                for i in range(len(row)):
+                    attributes = list(t.schema.values())
+                    # do a type check, get the maximum bytes a column can hold, 
+                    # and convert the data to a binary string.
+                    if type(row[i]) != attributes[i]["type"]:
+                        logging.error(f'wrong type {type(row[i])} for schema element of type {attributes[i]["type"]}')
+                    total_bytes = attributes[i]["bytes"]
+                    original_string = str(row[i]).encode("utf-8")
 
-                # append the now binary value to the append string.
-                append_string += insert_string
-                index += 1
-        # write every single data point in one go.
+                    # fill leftover space with a \x00.
+                    if((total_bytes - len(original_string)) < 0): # error check
+                        logging.error("too much data for schema element")
+                        raise ValueError(f"{row[i]} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
+                    fill_bytes = b'\x00' * (total_bytes - len(original_string))
+                    insert_string = original_string + fill_bytes
+                    append_string += insert_string
+
+        # once all the data is on one binary string,
+        # append the data to the file
         try:
             with open(f"{self.directory}/{table_name}.bin", write_type+"b") as file:
                 file.write(append_string)
@@ -220,8 +212,8 @@ if __name__ == "__main__":
     db = DatabaseEngine("rentals")
     db.create_table("rentals", "apts", schema)
     # INSERT INTO apts (address, price, zip_code, bed, bath) VALUES ('123 Main St', 1500, '12345', 2, 1), ('456 Elm St', 2000, '23456', 3, 2), etc
-    #d = db.execute({'operation': 'INSERT', 'columns': [], 'table': 'apts', 'values': data})
-    #logging.info(d)
+    d = db.execute({'operation': 'INSERT', 'columns': [], 'table': 'apts', 'values': data})
+    logging.info(d)
     # SELECT * FROM apts WHERE price < 1500
-    data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': {'column': 'price', 'operator': '<=', 'value': '2000'}})
+    data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': {'column': 'price', 'operator': '<', 'value': '2000'}})
     logging.info(f"data found: {data_list}")
