@@ -33,14 +33,15 @@ class DatabaseEngine:
         self.create_db(self.user)
 
     def execute(self, query_plan: dict) -> list:
+        table = query_plan["table"] # all require the table
         if query_plan["operation"] == "SELECT":
-            table = query_plan["table"]
             condition = query_plan["condition"]
             return self.scan(self.user, table, condition)
         elif query_plan["operation"] == "UPDATE":
-            pass
+            condition = query_plan["condition"]
+            set = query_plan["set"]
+            return self.update(self.user, table, set, condition)
         elif query_plan["operation"] == "INSERT":
-            table = query_plan["table"]
             values = query_plan["values"]
             return self.insert(self.user, table, values)
         elif query_plan["operation"] == "DELETE":
@@ -75,6 +76,8 @@ class DatabaseEngine:
                 data_list.append(row)
             else:
                 cond = f'{row[condition["column"]]} {condition["operator"]} {condition["value"]}'
+                logging.info(f"engine: scan: {cond}")
+                logging.info(f'evaluates to {eval(cond)}')
                 if eval(cond):
                     data_list.append(row)
 
@@ -99,9 +102,30 @@ class DatabaseEngine:
             t.index_structure = {}
 
         self.insert(db_name, table_name, write_type="w")
-
-    def update(self, db_name: str, table_name: str, condition = None):
-        pass
+    
+    def update(self, db_name: str, table_name: str, set: list[dict], condition = None):
+        table = self.databases[db_name].tables[table_name]
+        data = self.scan(db_name, table_name, None)
+        logging.info(f'table: {table.schema}')
+        # after we grabbed ALL the data, only update the rows that match the condition.
+        #otherwise, we have to go through the database and figure out where all our data is and remove it.
+        #so overwriting right not is just a little easier to do. Definitely need to make this faster in the future.
+        for row in data:
+            if condition is None:
+                for set_column in set:
+                    row[set_column["column"]] = set_column["value"]
+                logging.info(f"engine: update: Updated {set} for {row}.")
+            else:
+                cond = f'{row[condition["column"]]} {condition["operator"]} {condition["value"]}'
+                if eval(cond):
+                    for update in set:
+                        row[update["column"]] = update["value"]
+                    logging.info(f"engine: update with condition: Updated {set} for {row}.")
+                    
+        table.total_rows = 0
+        insert_list = [[table.schema[key]["type"](value) for key, value in row.items()] for row in data]
+        logging.info(f'engine: update: inserting {insert_list}')
+        self.insert(db_name, table_name, insert_list, 'w') # this insert overwrites the entire database. 
     
     # create a table as a .bin file of the form table_name.bin
     def create_table(self, db_name: str, table_name: str, schema: dict):
@@ -219,3 +243,9 @@ if __name__ == "__main__":
     # SELECT * FROM apts WHERE price < 1500
     data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': {'column': 'price', 'operator': '<', 'value': '2000'}})
     logging.info(f"data found: {data_list}")
+
+    # UPDATE apts SET price = 1500
+    db.execute({'operation': 'UPDATE', 'columns': ['*'], 'table': 'apts', 'set': [{'column': 'price', 'value': '1500'}], 'condition': None})
+    # SELECT * FROM apts WHERE price < 1500
+    data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': {'column': 'price', 'operator': '>', 'value': '2000'}})
+    logging.info(f"data found: {data_list}. Should be empty.")
