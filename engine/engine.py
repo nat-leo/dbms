@@ -45,7 +45,8 @@ class DatabaseEngine:
             values = query_plan["values"]
             return self.insert(self.user, table, values)
         elif query_plan["operation"] == "DELETE":
-            pass
+            condition = query_plan["condition"]
+            return self.delete(self.user, table, condition)
 
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
@@ -92,7 +93,7 @@ class DatabaseEngine:
             for datum in data:
                 cond = f'{datum[condition["column"]]} {condition["operator"]} {condition["value"]}'
                 if eval(cond):
-                    t.total_rows -= 1
+                    #t.total_rows -= 1
                     # t.index_structure.remove(datum)
                     continue
                 else:
@@ -101,7 +102,8 @@ class DatabaseEngine:
             t.total_rows = 0
             t.index_structure = {}
 
-        self.insert(db_name, table_name, write_type="w")
+        t.total_rows = 0
+        self.insert(db_name, table_name, filtered_list, "w")
     
     def update(self, db_name: str, table_name: str, set: list[dict], condition = None):
         table = self.databases[db_name].tables[table_name]
@@ -249,3 +251,8 @@ if __name__ == "__main__":
     # SELECT * FROM apts WHERE price < 1500
     data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': {'column': 'price', 'operator': '>', 'value': '2000'}})
     logging.info(f"data found: {data_list}. Should be empty.")
+    # DELETE * FROM apts
+    db.execute({'operation': 'DELETE', 'columns': ['*'], 'table': 'apts', 'condition': None})
+    # SELECT * FROM apts
+    data_list = db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': None})
+    logging.info(f"data deleted: {data_list}. Should be empty.")
