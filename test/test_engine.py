@@ -12,11 +12,25 @@ from dbms.engine import engine
 def new_user():
     return engine.DatabaseEngine("test")
 
+@pytest.fixture
+def creates_table(new_user):
+    new_user.create_table("test", "table", {})
+    return new_user
+
 # New users should have everything clear except a folder of the same name as the user
 def test_new_user_database_engine(new_user):
     assert os.path.isdir(new_user.directory), "New user 'test' did not create a new directory"
 
+# New users have an empty tables object
+def test_new_user_tables_is_empty(new_user):
+    assert len(new_user.databases["test"].tables) == 0, "New user has something in tables obejct on init"
+
 # New users should be able to create any new table without error
-def test_new_user_create_table(new_user):
-    new_user.create_table("test", "table", {"schema": {"type": str, "bytes": 64}})
-    assert os.path.exists(new_user.directory+"/table.bin"), "New table 'table' did not create a new file"
+def test_new_user_create_table(creates_table):
+    assert os.path.exists(creates_table.directory+"/table.bin"), "New table 'table' did not create a new file"
+    
+# Database object should have a new table in its tables attribute when user calls create table
+def test_new_user_table_in_db_object(creates_table):
+    assert "table" in creates_table.databases["test"].tables, "New table 'table' not created in database object"
+
+    
