@@ -1,4 +1,4 @@
-class Hashmap:
+class OrderedDictionary:
     def __init__(self) -> None:
         self.size = 0
         self.pairs = {}
