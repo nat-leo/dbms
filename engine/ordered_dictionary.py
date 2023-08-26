@@ -1,7 +1,8 @@
 class OrderedDictionary:
     def __init__(self) -> None:
         self.size = 0
-        self.pairs = {}
+        self.hashmap = {}
+        self.keys = []
 
     def insert(self, key, value):
         if key in self.pairs:
