@@ -15,62 +15,39 @@ class Table:
         # But, should a table also control writing to and from files?
         self.index_structure = None 
 
-# Database class
-# A relic of the old design. It's really the user in question, which will be helpful later when we add multiple users 
-# with diffent read/write/execute permissions. 
-class Database:
-    def __init__(self, name) -> None:
-        self.name = name # name of user.
-        self.tables = {} # List of table objects. All the tables that belong to the user. 
-
-    # self explanatory. The key is the name of the table like "apts" or "table1". The value is a table object. 
-    def add_table(self, table: Table):
-        self.tables[table.name] = table
-        logging.info(f"registered table {table.name} into database obejct {self.name}.")
-    
-    # Removes the table from the database, but doesn't delete the file that the table represents.
-    def remove_table(self, table: Table):
-        if table.name in self.tables:
-            del self.tables[table.name]
-        else:
-            logging.warning(f"table {table.name} was not registered in it's database object. Table file {table.name}.bin may still exist in the db directory.")
-
 # Database Engine class
 # Currently performs file scans, delete, updates, and inserts. 
 class DatabaseEngine:
     # stores all databases.
     def __init__(self, user) -> None:
-        # self.index_structure = Hashmap()
         self.user = user
         self.directory = os.path.join(os.path.dirname(__file__), user) # create user folder in the same dir as this file!
-        self.databases = {user: Database(name=user)} # dict for constant access time 
-        self.create_db(self.user)
+        self.tables = {} # const lookup time for table objects.
+        self.create_db() # init the database
 
     def execute(self, query_plan: dict) -> list:
         table = query_plan["table"] # all require the table
         if query_plan["operation"] == "SELECT":
             condition = query_plan["condition"]
-            return self.scan(self.user, table, condition)
+            return self.table_scan(table, condition)
         elif query_plan["operation"] == "UPDATE":
             condition = query_plan["condition"]
             set = query_plan["set"]
-            return self.update(self.user, table, set, condition)
+            return self.update(table, set, condition)
         elif query_plan["operation"] == "INSERT":
             values = query_plan["values"]
-            return self.insert(self.user, table, values)
+            return self.insert(table, values)
         elif query_plan["operation"] == "DELETE":
             condition = query_plan["condition"]
-            return self.delete(self.user, table, condition)
+            return self.delete(table, condition)
 
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
-    def table_scan(self, db_name: str, table_name: str, condition = None) -> list:
+    def table_scan(self, table_name: str, condition = None) -> list:
         # alias the table
-        if not self.databases[db_name].tables:
-            raise KeyError(f"{self.databases[db_name]} is empty.")
-        if not self.databases[db_name].tables[table_name]:
-            raise KeyError(f"{self.databases[db_name]} is has no key called {table_name}.")
-        t = self.databases[db_name].tables[table_name]
+        if table_name not in self.tables:
+            raise KeyError(f"{self.tables} is has no key called {table_name}.")
+        t = self.tables[table_name]
 
         # read entire file
         with open(f"{self.directory}/{table_name}.bin", "rb") as file:
@@ -98,9 +75,9 @@ class DatabaseEngine:
         return data_list
     
     # append data into table.bin as binary data
-    def insert(self, db_name: str, table_name: str, data: list[list], write_type="a"):
+    def insert(self, table_name: str, data: list[list], write_type="a"):
         try:
-            t = self.databases[db_name].tables[table_name]
+            t = self.tables[table_name]
         except KeyError as e:
             logging.error(f'{e}: Insert not performed.')
 
@@ -133,9 +110,9 @@ class DatabaseEngine:
         except:
             logging.error(f'{e}: unable to write data to file.')
 
-    def update(self, db_name: str, table_name: str, set: list[dict], condition = None):
-        table = self.databases[db_name].tables[table_name]
-        data = self.scan(db_name, table_name, None)
+    def update(self, table_name: str, set: list[dict], condition = None):
+        table = self.tables[table_name]
+        data = self.table_scan(table_name, None)
         logging.info(f'table: {table.schema}')
         # after we grabbed ALL the data, only update the rows that match the condition.
         #otherwise, we have to go through the database and figure out where all our data is and remove it.
@@ -155,11 +132,11 @@ class DatabaseEngine:
         table.total_rows = 0
         insert_list = [[table.schema[key]["type"](value) for key, value in row.items()] for row in data]
         logging.info(f'engine: update: inserting {insert_list}')
-        self.insert(db_name, table_name, insert_list, 'w') # this insert overwrites the entire database. 
+        self.insert(table_name, insert_list, 'w') # this insert overwrites the entire database. 
     
-    def delete(self, db_name: str, table_name: str, condition = None):
-        t = self.databases[db_name].tables[table_name]
-        data = self.scan(db_name, table_name, condition)
+    def delete(self, table_name: str, condition = None):
+        t = self.tables[table_name]
+        data = self.table_scan(table_name, condition)
         
         filtered_list = []
         if condition:
@@ -176,22 +153,24 @@ class DatabaseEngine:
             t.index_structure = {}
 
         t.total_rows = 0
-        self.insert(db_name, table_name, filtered_list, "w")
+        self.insert(table_name, filtered_list, "w")
     
     # create a table as a .bin file of the form table_name.bin
-    def create_table(self, db_name: str, table_name: str, schema: dict):
+    def create_table(self, table_name: str, schema: dict):
         # create the table as a file
         path = f"{self.directory}/{table_name}.bin"
         open(path, "wb")
         
         # register the table in the right db
         table = Table(table_name, schema)
-        self.databases[db_name].add_table(table)
+        self.tables[table_name] = table
 
         logging.info(f"DatabaseEngine: created Table Object {path}")
 
-    # create a database as a directory, where the directory/folder name is db_name
-    def create_db(self, db_name: str):
+    # helper function used when the engine is initialized. This creates a directory of 
+    # the name self.user. The next form of this should be "init_db" so that users that aren't
+    # new can have access to their previous user directory.
+    def create_db(self):
         if os.path.exists(self.directory):
             logging.info("Directory already exists for user. Welcome back.")
         else:
@@ -200,37 +179,16 @@ class DatabaseEngine:
                 logging.info("Directory created for new user. Welcome!")
             except OSError as e:
                 logging.error(f"Error creating directory: {e}")
-        # register a db object so we can keep track of dbs and tables easier.
-        db = Database(db_name)
-        self.databases[db_name] = db
     
     # completely delete the table from the database
-    def drop_table(self, db_name: str, table_name: str):
-        # remove the object
-        if db_name in self.databases:
-            db = self.databases[db_name].tables
-            if table_name in db:
-                del db[table_name]
-            else:
-                logging.warning(f"DatabaseEngine: table {table_name} was not found in {db_name}. Table file {table_name}.bin may still exist in the db directory.")
-        else:
-            logging.warning(f"DatabaseEngine: db {db_name} was not registered. db folder {db_name} may still exist.")
-        # remove the file
+    def drop_table(self, table_name: str):
         try:
-            os.remove(f"{self.directory}/{db_name}/{table_name}.bin")
+            os.remove(f"{self.directory}/{table_name}.bin")
         except OSError as e:
             logging.error(f"{e}: table was not removed.")
-        
-    # completely delete the the database
-    def drop_db(self, db_name: str):
-        if db_name in self.databases:
-            del self.databases[db_name]
-        else:
-            logging.warning(f"DatabaseEngine: database {db_name} was not registered")
-        try:
-            os.rmdir(self.directory+"/"+db_name)
-        except OSError as e:
-            logging.error(f"{e}: database folder was not removed.")
+
+        # only delete the table if removing the file was successful
+        del self.tables[table_name]
 
 if __name__ == "__main__":
     schema = {
@@ -250,7 +208,7 @@ if __name__ == "__main__":
     ]
     logging.basicConfig(level=logging.DEBUG)
     db = DatabaseEngine("rentals")
-    db.create_table("rentals", "apts", schema)
+    db.create_table("apts", schema)
     # INSERT INTO apts (address, price, zip_code, bed, bath) VALUES ('123 Main St', 1500, '12345', 2, 1), ('456 Elm St', 2000, '23456', 3, 2), etc
     d = db.execute({'operation': 'INSERT', 'columns': [], 'table': 'apts', 'values': data})
     logging.info(d)
