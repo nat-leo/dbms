@@ -24,16 +24,13 @@ data = [
 Create a table like this, where `rentals` is the name of the db, and `apts` is the name of the table:
 
 ```
->>>db = DatabaseEngine("rentals")
->>>db.create_table("rentals", "apts", schema)
+db = DatabaseEngine("rentals")
+db.create_table("rentals", "apts", schema)
 ```
 
 With the table created, `SELECT * FROM apts` should give an empty string:
 ```
->>>db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': None})
->>>logging.info(f"data deleted: {data_list}. Should be empty.")
-read entire table apts. Data read: b''
-data deleted: []. Should be empty.
+db.execute({'operation': 'SELECT', 'columns': ['*'], 'table': 'apts', 'condition': None})
 ```
 
 Insert data like this:
