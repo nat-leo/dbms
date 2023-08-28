@@ -1,4 +1,45 @@
+engine > engine.py
 # The Database Engine
+
+The database engine is responsible for:
+1. Run File I/O and getting data out of disk and on to memory.
+2. Control read/write/execute permissions for users.
+3. Implement the index structure to speed up File I/O.
+4. Execute query plans. (A.K.A Do all these things.)
+
+A FileManager can do 1 and 2. The IndexStructure can do 3, and the DatabaseEngine can do 4 by composing the other two.
+
+The only command any user of the DatabaseEngine should be: 
+
+```
+execute(arg: a query plan):
+  return the data that fulfills the query plan
+```
+
+Everything else is under the hood.
+
+## Under The Hood:
+
+When `execute()` is run:
+```
+1. DatabaseEngine gets the query plan
+
+2. DatabaseEngine sends command to IndexStructure. IndexStructure returns a list of file locations.
+
+3. DatabaseEngine sends the command and list of file locations to FileManager. FileManager does the IO and returns data.
+```
+
+### The DatabaseEngine Object:
+```
+```
+
+### The FileManager object:
+```
+```
+
+### The Index Structure Object:
+```
+```
 
 Usage:
 
