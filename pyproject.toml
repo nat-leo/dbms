@@ -1,0 +1,7 @@
+[project]
+name = "dbms"
+version = "0.0.1"
+dependencies = []
+
+[tool.setuptools.packages]
+packages = ["dbms", "dbms.compiler", "dbms.engine"]
