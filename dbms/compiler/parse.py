@@ -1,6 +1,6 @@
 import logging
-import ply.lex as lex
-import tokens
+from dbms.compiler.ply import lex
+from dbms.compiler import tokens
 
 class Parser:
     def __init__(self) -> None:
