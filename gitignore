@@ -1,5 +1,6 @@
 __pycache__/
-engine/.pytest_cache
-engine/__pycache__/
-compiler/__pycache__/
-test/__pycache__/
+dbms/__pycache__/
+dbms/engine/.pytest_cache
+dbms/engine/__pycache__/
+dbms/compiler/__pycache__/
+dbms/test/__pycache__/
