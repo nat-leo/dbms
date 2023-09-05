@@ -6,3 +6,4 @@ dbms/compiler/__pycache__/
 dbms/test/__pycache__/
 dbms/__init__.pyc
 dbms/dist/
+dbms/dbms.egg-info/
