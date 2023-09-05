@@ -18,5 +18,4 @@ pythonpath = [
 ]
 
 [project.scripts]
-run = "dbms.cli:hello"
-
+db = "dbms.cli.run:my_func"
