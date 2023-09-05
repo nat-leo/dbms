@@ -1,8 +1,10 @@
 __pycache__/
 dbms/__pycache__/
+dbms/cli/__pycache__/
 dbms/engine/.pytest_cache
 dbms/engine/__pycache__/
 dbms/compiler/__pycache__/
+dbms/compiler/ply/__pycache__/
 dbms/test/__pycache__/
 dbms/__init__.pyc
 dbms/dist/
