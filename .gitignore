@@ -1,4 +1,5 @@
 __pycache__/
+.pytest_cache/
 dbms/__pycache__/
 dbms/cli/__pycache__/
 dbms/engine/.pytest_cache
