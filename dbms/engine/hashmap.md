@@ -9,7 +9,7 @@ A common sight as index structures for DBMSes. As long as the Hashmap fits in me
 4. **O(n) Range Query on Key** 
 4. **O(n) Range Query off Key**
 
-Where n is the number of elements.
+Where n is the number of rows in the table/relation, a possibly massive amount of data.
 
 ## As index structures
 
