@@ -1,12 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "dbms"
 version = "0.0.1"
-dependencies = []
+dependencies = [
+  "logging",
+]
 
 [tool.setuptools.packages]
-packages = ["dbms", "dbms.compiler", "dbms.engine"]
+find = {}
 
 [tool.pytest.ini_options]
 pythonpath = [
   "dbms",
 ]
+
+[project.scripts]
+run = "dbms:hello"
+
