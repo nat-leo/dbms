@@ -1,5 +1,5 @@
-from . import hello
-import argparse
+from run import my_func
 
+# python3 dbms/cli -r "erqa"
 if __name__ == "__main__":
-    hello()
+    my_func()
