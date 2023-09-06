@@ -18,4 +18,4 @@ pythonpath = [
 ]
 
 [project.scripts]
-db = "dbms.cli.run:my_func"
+db = "dbms.cli.scripts:run_sql_query"
