@@ -1,5 +1,6 @@
 import os
 import logging
+import hashlib
 
 # Table Class
 # Used by Database Object. Table objects are created to represent tables (duh) which themselves are directories. 
@@ -19,11 +20,11 @@ class Table:
 # Currently performs file scans, delete, updates, and inserts. 
 class DatabaseEngine:
     # stores all databases.
-    def __init__(self, user) -> None:
+    def __init__(self, user, password=None) -> None:
         self.user = user
         self.directory = os.path.join(os.path.dirname(__file__), user) # create user folder in the same dir as this file!
         self.tables = {} # const lookup time for table objects.
-        self.create_db() # init the database
+        self.create_db(password) # init the database
 
     def execute(self, query_plan: dict) -> list:
         table = query_plan["table"] # all require the table
@@ -170,12 +171,20 @@ class DatabaseEngine:
     # helper function used when the engine is initialized. This creates a directory of 
     # the name self.user. The next form of this should be "init_db" so that users that aren't
     # new can have access to their previous user directory.
-    def create_db(self):
+    def create_db(self, password):
         if os.path.exists(self.directory):
             logging.info("Directory already exists for user. Welcome back.")
         else:
             try:
                 os.mkdir(self.directory)
+                path = f"{self.directory}/password.txt" # hold the password in user directory
+                # salt and hash the password
+                salt = os.urandom(32)
+                hashed = hashlib.sha256(password.encode('utf-8')+salt).hexdigest()
+                # store the password in the right file:
+                with open(path, "w") as file:
+                    file.write(hashed)
+
                 logging.info("Directory created for new user. Welcome!")
             except OSError as e:
                 logging.error(f"Error creating directory: {e}")

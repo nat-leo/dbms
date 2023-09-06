@@ -11,7 +11,7 @@ def run_sql_query():
     args = parser.parse_args()
 
     # set up database objects
-    eng = engine.DatabaseEngine("root")
+    eng = engine.DatabaseEngine("root", "bill")
     sql = parse.Parser()
     try:
         sql.parse(args.run)
