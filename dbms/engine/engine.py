@@ -24,7 +24,7 @@ class DatabaseEngine:
         self.user = user
         self.directory = os.path.join(os.path.dirname(__file__), user) # create user folder in the same dir as this file!
         self.tables = {} # const lookup time for table objects.
-        self.create_db(password) # init the database
+        self.init_db(password) # init the database
 
     def execute(self, query_plan: dict) -> list:
         table = query_plan["table"] # all require the table
@@ -168,6 +168,14 @@ class DatabaseEngine:
 
         logging.info(f"DatabaseEngine: created Table Object {path}")
 
+    # check if database exists, if it does, login, else
+    #create the database
+    def init_db(self, password):
+        if os.path.exists(self.directory):
+            self.login(password)
+        else:
+            self.create_db(password)
+    
     # helper function used when the engine is initialized. This creates a directory of 
     # the name self.user. The next form of this should be "init_db" so that users that aren't
     # new can have access to their previous user directory.
@@ -177,18 +185,36 @@ class DatabaseEngine:
         else:
             try:
                 os.mkdir(self.directory)
-                path = f"{self.directory}/password.txt" # hold the password in user directory
-                # salt and hash the password
-                salt = os.urandom(32)
+                # salt and hash the password (hash+salt is 1024 bytes)
+                size = 1024
+                password_length = len(password)
+                salt = os.urandom(size-password_length)
                 hashed = hashlib.sha256(password.encode('utf-8')+salt).hexdigest()
-                # store the password in the right file:
-                with open(path, "w") as file:
+                # store the hashed password and salt in separate files. Otherwise,
+                #we'd have to convert the hashed password to binary and it's a pain
+                #in the butt (But not reallyt. This is probably a weed we'll have to 
+                #pull later.)
+                with open(self.directory+"/hash.txt", "w") as file:
                     file.write(hashed)
-
+                with open(self.directory+"/salt.bin", "wb") as file:
+                    file.write(salt)
                 logging.info("Directory created for new user. Welcome!")
             except OSError as e:
                 logging.error(f"Error creating directory: {e}")
     
+    # helper function used when the engine is initialized. This lets users login.
+    # ASSUMES: directory exists and has a file called password.txt
+    def login(self, password):
+        # read the password (1st line) and salt (2nd line) from file
+        with open(self.directory+"/hash.txt", "r") as file:
+            hashed_actual = file.read()
+        with open(self.directory+"/salt.bin", "rb") as file:
+            salt = file.read()
+        # encrpyt the password with
+        hashed_try = hashlib.sha256(password.encode('utf-8')+salt).hexdigest()
+        if hashed_try != hashed_actual:
+            raise ValueError("Incorrect password.")
+
     # completely delete the table from the database
     def drop_table(self, table_name: str):
         try:
