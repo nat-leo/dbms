@@ -144,7 +144,7 @@ class DatabaseEngine:
             for datum in data:
                 cond = f'{datum[condition["column"]]} {condition["operator"]} {condition["value"]}'
                 if eval(cond):
-                    #t.total_rows -= 1
+                    # t.total_rows -= 1
                     # t.index_structure.remove(datum)
                     continue
                 else:
@@ -202,6 +202,16 @@ class DatabaseEngine:
             except OSError as e:
                 logging.error(f"Error creating directory: {e}")
     
+    # completely delete the table from the database
+    def drop_table(self, table_name: str):
+        try:
+            os.remove(f"{self.directory}/{table_name}.bin")
+        except OSError as e:
+            logging.error(f"{e}: table was not removed.")
+
+        # only delete the table if removing the file was successful
+        del self.tables[table_name]
+
     # helper function used when the engine is initialized. This lets users login.
     # ASSUMES: directory exists and has a file called password.txt
     def login(self, password):
@@ -215,15 +225,15 @@ class DatabaseEngine:
         if hashed_try != hashed_actual:
             raise ValueError("Incorrect password.")
 
-    # completely delete the table from the database
-    def drop_table(self, table_name: str):
-        try:
-            os.remove(f"{self.directory}/{table_name}.bin")
-        except OSError as e:
-            logging.error(f"{e}: table was not removed.")
-
-        # only delete the table if removing the file was successful
-        del self.tables[table_name]
+    # list out every table lcoated in the current directory
+    #exclude files that aren't tables like password and salt.
+    def ls(self):
+        tables = []
+        black_list = ["hash.txt", "salt.bin"]
+        for file in os.listdir(self.directory):
+            if file not in black_list:
+                tables.append(file.split(".")[0])
+        return tables
 
 if __name__ == "__main__":
     schema = {
