@@ -2,7 +2,7 @@
 # Hashmap Test File
 ###############################################################################
 import pytest
-from dbms.engine import hashmap
+from engine import hashmap
 
 @pytest.fixture
 def h():

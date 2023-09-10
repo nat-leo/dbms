@@ -1,7 +1,7 @@
 # Test File for Engine folder
 import os
 import pytest
-from dbms.engine import engine
+from engine import engine
 
 ###############################################################################
 # engine/engine.py
