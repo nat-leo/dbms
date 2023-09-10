@@ -1,6 +1,6 @@
 import logging
-from dbms.compiler.ply import lex
-from dbms.compiler import tokens
+from compiler.ply import lex
+from compiler import tokens
 
 class Parser:
     def __init__(self) -> None:
@@ -70,6 +70,20 @@ class Parser:
                 },
             } # ast
             self.delete()
+        
+        elif self.match_token.type in ["CREATE"]:
+            self.query_plan = {
+                "operation": "CREATE",
+                "columns": [],
+                "table": None,
+                "schema": {
+                    #column_name: {
+                    #   "type": varchar,
+                    #   "bytes": 255,
+                    # }
+                },
+            } # ast
+            self.create_table()
 
     """SELECT column_list FROM table"""
     def select(self):
@@ -287,6 +301,61 @@ class Parser:
         # value
         self.query_plan["condition"]["value"] = self.value()
     
+    """ CREATE TABLE table ( column_type_list )"""
+    def create_table(self):
+        # the next token should be TABLE
+        self.match_token = self.lexer.token()
+        # error checking
+        if self.match_token.type not in ["TABLE"]:
+            raise SyntaxError(f"create_table: Error on line {self.match_token.lineno}. Expected [TABLE]: got {self.match_token} instead.")
+        # the next token should be a table
+        self.match_token = self.lexer.token()
+        self.table()
+
+        # assert an LPAR
+        if self.match_token.type not in ["LPAR"]:
+            raise SyntaxError(f"create_table: Error on line {self.match_token.lineno}. Expected [LPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+
+        # column_type_list
+        self.column_type_list()
+
+        # assert an RPAR
+        if self.match_token.type not in ["RPAR"]:
+            raise SyntaxError(f"create_table: Error on line {self.match_token.lineno}. Expected [RPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+
+    # column_type column_type_list_n
+    def column_type_list(self):
+        self.column_type()
+        self.column_type_list_n()
+
+    """
+    COMMA column_type column_type_list_n
+    | RPAR [None]
+    """
+    def column_type_list_n(self):
+         # empty rule
+        if self.match_token.type == 'RPAR':
+            return
+        # there's another column, expect COMMA
+        elif self.match_token.type in ["COMMA"]:
+            logging.info(f"column_type_list_n: Matched {self.match_token} to [COMMA].")
+            self.match_token = self.lexer.token()
+            # After COMMA, expect col row_list_n
+            self.column_type_list_n()
+            return
+        else: 
+            raise SyntaxError(f"column_type_list_n: Error on line {self.match_token.lineno}. Expected [COMMA, None]: got {self.match_token} instead.")
+        
+    # column type
+    def column_type(self):
+        if self.match_token.type not in ["ID"]:
+            raise SyntaxError(f"column_type: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
+        column_name = self.match_token.value # need to send this to the type rule.
+        self.column()
+        self.type_declaration(column_name)
+
     # OPERATOR
     def operator(self):
         if self.match_token.type not in ["OPERATOR"]:
@@ -306,8 +375,14 @@ class Parser:
     # returns the column Lexeme matched.
     def column(self):
         # build query plan
-        if self.query_plan["operation"] in ["SELECT", "DELETE"]:
+        if self.query_plan["operation"] in ["SELECT", "DELETE"]: # SELECT, DELETE FROM
             self.query_plan["columns"].append(self.match_token.value)
+
+        # SHOULD THIS BE HERE OR IN A HIGHER LEVEL RULE???
+        # this column can't be all, but we do not check it then error nicely.
+        #elif self.query_plan["operation"] in ["CREATE"]: # CREATE TABLE
+        #    self.query_plan["schema"][self.match_token.value] = {}
+
         # parser logic
         if self.match_token.type in ["ID"]:
             logging.info(f"column: Matched {self.match_token} to [ID].")
@@ -346,6 +421,47 @@ class Parser:
             self.match_token = self.lexer.token()
         else: 
             raise SyntaxError(f"table: Error on line {self.match_token.lineno}. Expected [ID]: got {self.match_token} instead.")
+    
+    """
+    type type_size
+    """
+    def type_declaration(self, column_name: str = None):
+        types = ["varchar"]
+        if column_name is not None: # CREATE TABLE
+            self.query_plan["schema"][column_name] = {}
+        # assert token is of type TYPE
+        if self.match_token.type not in types:
+            raise SyntaxError(f"type_declaration: Error on line {self.match_token.lineno}. Expected [TYPE]: got {self.match_token} instead.")
+        type_id = self.match_token.value
+        self.match_token = self.lexer.token()
+        # type size
+        type_size = self.type_size()
+        if column_name is not None: # when we get a CREATE TABLE sql query
+            self.query_plan["schema"][column_name]["type"] = type_id
+            self.query_plan["schema"][column_name]["bytes"] = type_size
+
+    # returns the size of the type
+    # ( INT )
+    def type_size(self):
+        # assert token is LPAR
+        if self.match_token.type not in ["LPAR"]:
+            raise SyntaxError(f"type_size: Error on line {self.match_token.lineno}. Expected [LPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+
+        # next token is an int
+        if self.match_token.type not in ["NUM"]:
+            raise SyntaxError(f"type_size: Error on line {self.match_token.lineno}. Expected [NUM]: got {self.match_token} instead.")
+        
+        # return the number to the query plan for CREATE TABLE
+        size = self.match_token
+        self.match_token = self.lexer.token()
+
+        # assert token is RPAR
+        if self.match_token.type not in ["RPAR"]:
+            raise SyntaxError(f"type_size: Error on line {self.match_token.lineno}. Expected [RPAR]: got {self.match_token} instead.")
+        self.match_token = self.lexer.token()
+
+        return size # return for CREATE TABLE
 
 if __name__ == "__main__":
     # Configure logging
