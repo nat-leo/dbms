@@ -43,11 +43,16 @@ reserved = {
     'ASC': 'ASC',
     'DESC': 'DESC',
     'SET': 'SET',
+    'CREATE': 'CREATE',
+    'TABLE': 'TABLE',
+
+    # types
+    'varchar': 'varchar',
 }
 
 tokens = ["ID", "STRING", "OPERATOR", "ALL", "COMMA", "LPAR", "RPAR", "NUM",] + list(reserved.values())
 
-t_NUM = r'\d+|\d*.\d+'
+t_NUM = r'\d+|[\d+|''].\d+'
 t_ALL = r'\*'
 t_COMMA = r','
 t_OPERATOR = r'<|>|<=|>=|='
