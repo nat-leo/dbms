@@ -41,6 +41,9 @@ class DatabaseEngine:
         elif query_plan["operation"] == "DELETE":
             condition = query_plan["condition"]
             return self.delete(table, condition)
+        elif query_plan["operation"] == "CREATE":
+            schema = query_plan["schema"]
+            return self.create_table(table, schema)
 
     # run an index scan on the table. Condition is either exactly the json from the 
     # lqp["condition"] or None.
