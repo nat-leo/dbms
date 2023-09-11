@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import hashlib
 
@@ -162,14 +163,22 @@ class DatabaseEngine:
     # create a table as a .bin file of the form table_name.bin
     def create_table(self, table_name: str, schema: dict):
         # create the table as a file
-        path = f"{self.directory}/{table_name}.bin"
-        open(path, "wb")
+        table_dir = os.path.join(self.directory, table_name)
+        os.mkdir(table_dir)
+        # paths
+        data_path = os.path.join(table_dir, table_name+".bin")
+        schema_path = os.path.join(table_dir, "schema.json")
+        # init an empty file b/c it's nice to see it before first append.
+        open(data_path, "wb")
+        # save the schema
+        with open(schema_path, "w") as file:
+            json.dump(schema, file)
         
         # register the table in the right db
         table = Table(table_name, schema)
         self.tables[table_name] = table
 
-        logging.info(f"DatabaseEngine: created Table Object {path}")
+        logging.info(f"DatabaseEngine: created Table Object {data_path}")
 
     # check if database exists, if it does, login, else
     #create the database
@@ -228,7 +237,7 @@ class DatabaseEngine:
         if hashed_try != hashed_actual:
             raise ValueError("Incorrect password.")
 
-    # list out every table lcoated in the current directory
+    # list out every table located in the current directory
     #exclude files that aren't tables like password and salt.
     def ls(self):
         tables = []

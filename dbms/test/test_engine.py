@@ -10,7 +10,7 @@ from engine import engine
 # New user created
 @pytest.fixture
 def new_user():
-    return engine.DatabaseEngine("test")
+    return engine.DatabaseEngine("test", "password")
 
 # New user creates table
 @pytest.fixture
@@ -24,7 +24,7 @@ def test_new_user_database_engine(new_user):
 
 # New users should be able to create any new table without error
 def test_new_user_create_table(creates_table):
-    assert os.path.exists(creates_table.directory+"/table.bin"), "New table 'table' did not create a new file"
+    assert os.path.exists(creates_table.directory+"/table/data.bin"), "New table 'table' did not create a new file"
     
 # Database object should have a new table in its tables attribute when user calls create table
 def test_new_user_table_in_db_object(creates_table):
