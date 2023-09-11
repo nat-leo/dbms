@@ -1,6 +1,6 @@
 import logging
-from compiler.ply import lex
-from compiler import tokens
+from .ply import lex
+from . import tokens
 
 class Parser:
     def __init__(self) -> None:
