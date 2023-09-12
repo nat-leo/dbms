@@ -343,6 +343,7 @@ class Parser:
             logging.info(f"column_type_list_n: Matched {self.match_token} to [COMMA].")
             self.match_token = self.lexer.token()
             # After COMMA, expect col row_list_n
+            self.column_type()
             self.column_type_list_n()
             return
         else: 
@@ -453,7 +454,7 @@ class Parser:
             raise SyntaxError(f"type_size: Error on line {self.match_token.lineno}. Expected [NUM]: got {self.match_token} instead.")
         
         # return the number to the query plan for CREATE TABLE
-        size = self.match_token
+        size = self.match_token.value
         self.match_token = self.lexer.token()
 
         # assert token is RPAR
