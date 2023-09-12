@@ -135,7 +135,16 @@ class DatabaseEngine:
                     logging.info(f"engine: update with condition: Updated {set} for {row}.")
                     
         table.total_rows = 0
-        insert_list = [[table.schema[key]["type"](value) for key, value in row.items()] for row in data]
+        insert_list = []
+        for row in data:
+            row_list = []
+            for key, value in row.items():
+                conversions = {'varchar': str}
+                t = conversions[table.schema[key]['type']]
+                row_list.append(t(value))
+            insert_list.append(row_list)
+
+        #insert_list = [[table.schema[key]["type"](value) for key, value in row.items()] for row in data]
         logging.info(f'engine: update: inserting {insert_list}')
         self.insert(table_name, insert_list, 'w') # this insert overwrites the entire database. 
     
