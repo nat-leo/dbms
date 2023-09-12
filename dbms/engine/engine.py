@@ -10,7 +10,7 @@ class Table:
     def __init__(self, name, schema: dict) -> None:
         self.name = name # name of the table & corresponding file.
         self.schema = schema # keep track of the type and size (in bytes \x00) of columns.
-        self.row_size = sum([value["bytes"] for key, value in self.schema.items()]) # total size of each row in bytes. Useful for seeking data in files.
+        self.row_size = sum([int(value["bytes"]) for key, value in self.schema.items()]) # total size of each row in bytes. Useful for seeking data in files.
         self.total_rows = 0 # keep track of the size of the table
         # if a database can hold many tables, then each table should control their own index structure.
         # This also means that the tables themselves should do index scans. 
@@ -65,8 +65,8 @@ class DatabaseEngine:
             datum = data[:t.row_size]
             row = {}
             for key, attribute in t.schema.items():
-                row[key] = datum[0:attribute['bytes']].replace(b"\x00", b'').decode()
-                datum = datum[attribute['bytes']:]
+                row[key] = datum[0:int(attribute['bytes'])].replace(b"\x00", b'').decode()
+                datum = datum[int(attribute['bytes']):]
                 logging.info(f"read {row[key]}")
             data = data[t.row_size:]
             if condition is None:
@@ -96,7 +96,7 @@ class DatabaseEngine:
                 # and convert the data to a binary string.
                 if type(row[i]) != attributes[i]["type"]:
                     logging.error(f'wrong type {type(row[i])} for schema element of type {attributes[i]["type"]}')
-                total_bytes = attributes[i]["bytes"]
+                total_bytes = int(attributes[i]["bytes"])
                 original_string = str(row[i]).encode("utf-8")
 
                 # fill leftover space with a \x00.
