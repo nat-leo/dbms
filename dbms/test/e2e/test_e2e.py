@@ -45,3 +45,10 @@ class E2E(unittest.TestCase):
         data = self.eng.execute(self.sql.query_plan)
         assert data == [{'col1': 'val', 'col2': 'col', 'col3': 'col'}], f"Incorrect data: \n {data}"
 
+    def test_delete(self):
+        self.sql.parse("DELETE FROM table")
+        self.eng.execute(self.sql.query_plan)
+        self.sql.parse("SELECT * FROM table")
+        data = self.eng.execute(self.sql.query_plan)
+        assert data == [], f"Incorrect data: \n {data}"
+
