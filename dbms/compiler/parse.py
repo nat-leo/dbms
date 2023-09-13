@@ -262,7 +262,7 @@ class Parser:
     # COMMA value attribute_list_n | empty [RPAR]
     def attribute_list_n(self):
         if self.match_token.type in ["RPAR"]: # empty case RPAR
-            return None
+            return []
         elif self.match_token.type in ["COMMA"]:
             self.match_token = self.lexer.token()
             val = self.value()
