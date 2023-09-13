@@ -1,21 +1,117 @@
 # Getting Started
 
-## Installation
-Follow the steps:
+Welcome to the DBMS project! This project features a subset of SQL and implements a database engine to process the SQL queries.
 
-1. Clone the repo:
+## Installation
+
+Follow the installation steps below:
+
+### 1. Clone the repo:
 ```
 git clone https://github.com/nat-leo/dbms.git
 ```
 
-2. Install the cli
+### 2. Install the the package
+
+In order to get access to the REPL:
 ```
 pip install .
 ```
-Enjoy!
+OR if you're using python3 and pip3:
+```
+pip3 install .
+```
+
+And that should do it! Run either command below to start the REPL:
+
+```
+db -l
+```
+OR
+```
+db --login
+```
+
+
 
 ## Basic Usage
 
+#### WARNING: SQL reserved keywords like SELECT, UPDATE, etc must be ALL CAPS.
 ```
-db -r "SELECT * FROM table"
+db --login
 ```
+eate or login to a user with the name `test` and password `password`, then enter details when prompted:
+```
+% db --login
+user: test
+password: password
+WARNING: t_ignore contains a literal backslash '\'
+enter Q to exit
+sql > 
+```
+
+Create a table easily with SQL:
+```
+sql > CREATE TABLE table (col varchar(255))
+None
+```
+Add some data to your newly created table:
+```
+sql > INSERT INTO table (col) VALUES (bob)
+None
+sql >  INSERT INTO table (col) VALUES (bill)   
+None
+sql >  INSERT INTO table (col) VALUES (babs)
+None
+```
+
+Currently you can only enter one row at a time, and will add an empty row:
+```
+sql > INSERT INTO table (col) VALUES (bob, bill, babs)
+An Exception Occurred: list index out of range
+None
+```
+
+Read the data you just wrote, including the empty row:
+```
+sql > SELECT * FROM table
+[{'col': 'bob'}, {'col': 'bill'}, {'col': 'babs'}, {'col': ''}]
+```
+To quit:
+```
+sql > q
+```
+
+## Some Important Info
+
+There are a few quirks before we begin. First your data is stored in the engine dirctory:
+
+```
+dbms/ # the repo
+├── ...
+├── ...
+├── ...
+├── engine/ # the Database Engine
+    ├── ...
+    ├── ...
+    ├── ...
+    ├── database/ # user prompt in the REPL
+        ├── hash.txt
+        ├── salt.bin
+        ├── table/
+            ├── schema.json 
+            └── table.bin # the actual data
+
+```
+### The key bits
+
+**database/** is what you enter into the `user:` prompt when you initially start up the repo with:
+
+```
+db --login
+```
+**table/** is the directory that holds the relation's metadata and data. When you run `CREATE TABLE table`, you get this directory and the following:
+
+**schema.json** holds the schema of your table, including the datatype and size in bytes of your columns.
+
+**table.bin** has the actual data. SQL queries read, write, and modify this file.
