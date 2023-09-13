@@ -82,7 +82,7 @@ To quit:
 sql > q
 ```
 
-## Some Important Info
+## Where Everything Is
 
 There are a few quirks before we begin. First your data is stored in the engine dirctory:
 
@@ -103,7 +103,6 @@ dbms/ # the repo
             └── table.bin # the actual data
 
 ```
-### The key bits
 
 **database/** is what you enter into the `user:` prompt when you initially start up the repo with:
 
