@@ -15,12 +15,21 @@ def repl():
     eng = engine.DatabaseEngine(user, password)
     sql = parse.Parser()
 
+    # Main CLI Loop
     print("enter Q to exit")
-    query = input("sql >")
+    query = ""
+    data = []
     while query not in ["Q", "q", "q ", "Q "]:
-        sql.parse(query)
-        eng.execute(sql.query_plan)
-        query = input("sql >")
+        query = input("sql > ")
+        try:
+            sql.parse(query)
+            data = eng.execute(sql.query_plan)
+        except Exception as e:
+            print(f"An Exception Occurred: {e}")
+        
+        # only print data on select statements
+        if data != []:
+            print(data)
 
 # dbms -r "SELECT * FROM relation"
 def run_sql_query():
