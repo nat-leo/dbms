@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dbms"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
   "logging",
 ]
@@ -13,9 +13,7 @@ dependencies = [
 find = {}
 
 [tool.pytest.ini_options]
-pythonpath = [
-  "dbms",
-]
+pythonpath = "dbms"
 
 [project.scripts]
-db = "dbms.cli.scripts:run_sql_query"
+db = "dbms.cli.scripts:repl"
