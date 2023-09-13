@@ -26,6 +26,7 @@ class DatabaseEngine:
         self.directory = os.path.join(os.path.dirname(__file__), user) # create user folder in the same dir as this file!
         self.tables = {} # const lookup time for table objects.
         self.init_db(password) # init the database
+        self.init_tables()
 
     def execute(self, query_plan: dict) -> list:
         table = query_plan["table"] # all require the table
@@ -55,7 +56,8 @@ class DatabaseEngine:
         t = self.tables[table_name]
 
         # read entire file
-        with open(f"{self.directory}/{table_name}.bin", "rb") as file:
+        path = os.path.join(self.directory, table_name, table_name+".bin")
+        with open(path, "rb") as file:
             data = file.read()
         logging.info(f"read entire table {table_name}. Data read: {data}")
 
@@ -80,12 +82,12 @@ class DatabaseEngine:
         return data_list
     
     # append data into table.bin as binary data
-    def insert(self, table_name: str, data: list[list], write_type="a"):
+    def insert(self, table_name: str, data: list, write_type="a"):
         try:
             t = self.tables[table_name]
         except KeyError as e:
             logging.error(f'{e}: Insert not performed.')
-
+        
         # write the data to one string, and append the entire string
         t.total_rows += len(data)
         append_string = b''
@@ -94,8 +96,8 @@ class DatabaseEngine:
                 attributes = list(t.schema.values())
                 # do a type check, get the maximum bytes a column can hold, 
                 # and convert the data to a binary string.
-                if type(row[i]) != attributes[i]["type"]:
-                    logging.error(f'wrong type {type(row[i])} for schema element of type {attributes[i]["type"]}')
+                #if type(row[i]) != attributes[i]["type"]:
+                #    logging.error(f'wrong type {type(row[i])} for schema element of type {attributes[i]["type"]}')
                 total_bytes = int(attributes[i]["bytes"])
                 original_string = str(row[i]).encode("utf-8")
 
@@ -105,12 +107,14 @@ class DatabaseEngine:
                     raise ValueError(f"{row[i]} of size {len(original_string)} too much data for schema max size of {t.schema[key]['bytes']}")
                 fill_bytes = b'\x00' * (total_bytes - len(original_string))
                 insert_string = original_string + fill_bytes
+
                 append_string += insert_string
 
         # once all the data is on one binary string,
         # append the data to the file
         try:
-            with open(f"{self.directory}/{table_name}.bin", write_type+"b") as file:
+            path = os.path.join(self.directory, table_name, table_name+".bin")
+            with open(path, write_type+"b") as file:
                 file.write(append_string)
         except:
             logging.error(f'{e}: unable to write data to file.')
@@ -188,6 +192,22 @@ class DatabaseEngine:
         self.tables[table_name] = table
 
         logging.info(f"DatabaseEngine: created Table Object {data_path}")
+
+    # We're keeping tack of table objects so later we can give each
+    #table it's own index structure. 
+    def init_tables(self):
+        tables = self.ls()
+        for table_name in tables:
+            schema = self.get_schema(table_name)
+            self.tables[table_name] = Table(table_name, schema)
+
+    # helper for init tables. We need to read the schema from the table directory 
+    #so we can populate our database engine with Table Objects.
+    def get_schema(self, table_name):
+        path = os.path.join(self.directory, table_name, "schema.json")
+        with open(path, "r") as file:
+            schema = json.loads(file.read())
+        return schema
 
     # check if database exists, if it does, login, else
     #create the database
