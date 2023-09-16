@@ -63,3 +63,73 @@ DatabaseEngine.exeucte(query_plan):
     return data
     
 ```
+
+# Our Design Decisions 
+
+# The Table Initialization Problem
+
+Does a table populate itself?
+
+```
+class Table
+    def fill_index_structure(self):
+        ...
+        ...
+        ...
+```
+In this case, it'd be nice for Tables to own the ability to fill their index structure. Given that the index structure is a class itself and should be ruled over by the Table class, this makes sense. The idea is nice in theory, but the devil is in the details:
+
+```
+def fill_index_structure:
+    for every row in the file: # problem line 
+        insert the key-(file loc) pair into the ndex structure.
+```
+
+## Why It's Bad
+
+### Single Responsibility Principle
+
+1. A class should only do one thing.
+2. No two classes should do the same thing.
+
+The first problem is that our Table class is now reading a file, which breaks the Single Responsibility Principle (SRP). Both DatabaseEngine AND Table can scan a file for data.
+
+### Don't Repeat Yourself
+
+The second problem is that the Table read is nearly the exact same as the DatabaseEngine Table read, so now we're breaking Don't Repeat Yourself (DRY) as well.
+
+```
+  Engine        ->       Engine
+  /    \        ->       /   \
+ /      \       ->      /     \
+IO      Table   ->    IO  --  Table
+```
+
+## Solutions that don't work:
+
+### Let the index structure initialize itself:
+
+This would fulfill SRP in that now the Table isn't initializing the Index Structure. It initializes itself.
+
+This still doesn't fulfill DRY: then Index Structure instead of Table is duplicating code in DatabaseEngine.
+
+### Stop duplicate code - create a FileManager:
+
+This would let both the Engine and Table call the same method. Which would help with DRY. Because FileManager now runs reads, it now has single responsibility: both the Engine and Table can call it.
+
+This doesn't fully give us SRP: A class does one thing implies that no two classes do the same thing. Despite the fact that the table is running `init_index_structure()` and not Engine's `table_scan()`, Table and Engine are still both reading tables, breaking the SRP's implication.
+
+## What we're going with
+
+Engine reads tables and sends the key-(file locs) pairs to Table. It fulfills both DRY and SRP:
+
+
+### Don't Repeat Yourself:
+
+Only Engine reads files, Table no longer needs to read a file in order to initialize its index.
+
+### Single Responsibility Principle
+
+Only Engine can read files. Only Table can initialize index structures.
+
+When Engine initializes tables, reads the file for each table, and sends schema and data to the tables, which then saves the schema and initializes it's index structure by passing along the data to the index structure. The index structure then saves the data by building itself, and we're done!
