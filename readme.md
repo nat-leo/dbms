@@ -84,7 +84,7 @@ sql > q
 
 ## Where Everything Is
 
-There are a few quirks before we begin. First your data is stored in the engine dirctory:
+There are a few quirks before we begin. First is that your data is stored in the engine dirctory (as opposed to var/lib or wherever):
 
 ```
 dbms/ # the repo
