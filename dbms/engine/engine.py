@@ -3,6 +3,8 @@ import json
 import logging
 import hashlib
 
+from . import hashmap
+
 # Table Class
 # Used by Database Object. Table objects are created to represent tables (duh) which themselves are directories. 
 # Each table gets its own file. Only that file will contain data associated with the table on-disk.
@@ -15,7 +17,14 @@ class Table:
         # if a database can hold many tables, then each table should control their own index structure.
         # This also means that the tables themselves should do index scans. 
         # But, should a table also control writing to and from files?
-        self.index_structure = None 
+        self.index_structure = hashmap.Hashmap()
+        self.init_index_structure()
+
+    def init_index_structure(self):
+        pass
+
+    def is_index_scannable(self):
+        pass
 
 # Database Engine class
 # Currently performs file scans, delete, updates, and inserts. 
@@ -83,11 +92,7 @@ class DatabaseEngine:
     
     # append data into table.bin as binary data
     def insert(self, table_name: str, data: list, write_type="a"):
-        try:
-            t = self.tables[table_name]
-        except KeyError as e:
-            logging.error(f'{e}: Insert not performed.')
-        
+        t = self.tables[table_name]
         # write the data to one string, and append the entire string
         t.total_rows += len(data)
         append_string = b''
@@ -199,7 +204,14 @@ class DatabaseEngine:
         tables = self.ls()
         for table_name in tables:
             schema = self.get_schema(table_name)
-            self.tables[table_name] = Table(table_name, schema)
+            t = Table(table_name, schema)
+            self.tables[table_name] = t
+            # This stuff must occur AFTER self.tables has the table_name in the DatabaseEngine object
+            #because table_scan checks and throws errors on table_names that aren't in self.tables yet!
+            data = self.table_scan(table_name)
+            t.total_rows = len(data) 
+            if t.total_rows != self.tables[table_name].total_rows:
+                raise ValueError("You suck")
 
     # helper for init tables. We need to read the schema from the table directory 
     #so we can populate our database engine with Table Objects.
