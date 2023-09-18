@@ -28,7 +28,7 @@ def repl():
             print(f"An Exception Occurred: {e}")
         
         # only print data on select statements
-        if data != []:
+        if data is not None:
             print(data)
 
 # dbms -r "SELECT * FROM relation"
