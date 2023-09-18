@@ -1,4 +1,4 @@
-# Test File for Engine folder
+# Test File for dbms/compiler
 import unittest
 import json
 from compiler import parse

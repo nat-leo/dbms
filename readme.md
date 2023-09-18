@@ -12,13 +12,24 @@ git clone https://github.com/nat-leo/dbms.git
 ```
 
 ### 2. Install the the package
+You NEED to update pip to the latest version, and use the latest version of Python (3.11 as of 9/18/23)
+Or you'll get build errors when running pip install. First, [update Python](https://www.python.org/downloads/), second:
+
+```
+pip install --upgrade pip
+```
+```
+pip3 install --upgrade pip3
+```
 
 In order to get access to the REPL:
 ```
+cd dbms
 pip install .
 ```
 OR if you're using python3 and pip3:
 ```
+cd dbms
 pip3 install .
 ```
 
@@ -84,7 +95,7 @@ sql > q
 
 ## Where Everything Is
 
-There are a few quirks before we begin. First your data is stored in the engine dirctory:
+There are a few quirks before we begin. First is that your data is stored in the engine dirctory (as opposed to var/lib or wherever):
 
 ```
 dbms/ # the repo
