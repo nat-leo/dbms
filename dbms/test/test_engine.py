@@ -23,3 +23,7 @@ class EngineTest(unittest.TestCase):
         for word in data:
             self.sql.parse(f"INSERT INTO table (key) VALUES ({word})")
             self.eng.execute(self.sql.query_plan)
+        
+        read_data = self.eng.table_scan("table")
+        read_data = [row["key"] for row in read_data]
+        
