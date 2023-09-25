@@ -20,10 +20,24 @@ class Table:
         self.index_structure = hashmap.Hashmap()
         self.init_index_structure()
 
-    def init_index_structure(self):
-        pass
+    # fill the index structure of the table. Data should be the entire relation, rows are read 
+    # in order. Key is which column in the schema we're building the index structure with. It must be 
+    # part of the schema.
+    def init_index_structure(self, data, key):
+        # make sure the key is in rows, just use the first row.
+        if key not in self.schema:
+            raise KeyError(f"key {key} not part of the schema {schema}")
+        
+        # 'data' should contain the entire relation.
+        self.total_rows = len(data)
+        # insert the key value pairs into the dataset.
+        for i in range(len(data)):
+            self.index_structure.insert(data[key], i*self.row_size)
 
     def is_index_scannable(self):
+        pass
+
+    def search(self):
         pass
 
 # Database Engine class
