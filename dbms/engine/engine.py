@@ -9,16 +9,16 @@ from . import hashmap
 # Used by Database Object. Table objects are created to represent tables (duh) which themselves are directories. 
 # Each table gets its own file. Only that file will contain data associated with the table on-disk.
 class Table:
-    def __init__(self, name, schema: dict) -> None:
+    def __init__(self, name, schema: dict, key=None) -> None:
         self.name = name # name of the table & corresponding file.
         self.schema = schema # keep track of the type and size (in bytes \x00) of columns.
         self.row_size = sum([int(value["bytes"]) for key, value in self.schema.items()]) # total size of each row in bytes. Useful for seeking data in files.
         self.total_rows = 0 # keep track of the size of the table
+        self.key = [key for key in schema][0] # make the key the first column in the schema
         # if a database can hold many tables, then each table should control their own index structure.
         # This also means that the tables themselves should do index scans. 
         # But, should a table also control writing to and from files?
         self.index_structure = hashmap.Hashmap()
-        self.init_index_structure()
 
     # fill the index structure of the table. Data should be the entire relation, rows are read 
     # in order. Key is which column in the schema we're building the index structure with. It must be 
@@ -37,8 +37,12 @@ class Table:
     def is_index_scannable(self):
         pass
 
-    def search(self):
-        pass
+    def search(self, key):
+        return self.index_structure.search(key)
+
+    def insert(self, data):
+        for i in range(len(data)):
+            self.index_structure.insert(data[i][self.key], i*self.row_size)
 
 # Database Engine class
 # Currently performs file scans, delete, updates, and inserts. 
@@ -102,6 +106,10 @@ class DatabaseEngine:
                 logging.info(f'evaluates to {eval(cond)}')
                 if eval(cond):
                     data_list.append(row)
+
+        # insert data into Table t index structure
+        t.insert(data_list)
+
         return data_list
     
     # append data into table.bin as binary data
