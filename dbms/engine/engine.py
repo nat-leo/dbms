@@ -212,7 +212,7 @@ class DatabaseEngine:
 
         logging.info(f"DatabaseEngine: created Table Object {data_path}")
 
-    # We're keeping tack of table objects so later we can give each
+    # We're keeping track of table objects so later we can give each
     #table it's own index structure. 
     def init_tables(self):
         tables = self.ls()
