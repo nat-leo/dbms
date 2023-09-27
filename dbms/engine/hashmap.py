@@ -1,6 +1,6 @@
 class Hashmap:
     def __init__(self) -> None:
-        self.map = {} # maps are key value pairs, where the value is a list.
+        self.map = {} # maps are key value pairs, where the value is a list of file locations that have the key.
         self.size = 0
 
     def __repr__(self) -> str:
