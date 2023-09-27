@@ -53,4 +53,4 @@ class TableTest(unittest.TestCase):
         # assert
         index = table.index_structure # this is a dict of lists
         for row in data:
-            assert index.search(row["key"]) is not None # HARDCODED
+            assert isinstance(table.search(row["key"]),list ), f"index searches must contain lists of file locs" # HARDCODED
